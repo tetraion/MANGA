@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { supabase, Favorite, Volume } from '@/lib/supabase'
 import AddForm from '@/components/AddForm'
 import FavoritesList from '@/components/FavoritesList'
+import RecommendationsList from '@/components/RecommendationsList'
+import RecentMangaList from '@/components/RecentMangaList'
 
 interface FavoriteWithVolumes extends Favorite {
   volumes: Volume[]
@@ -135,10 +137,16 @@ export default function Home() {
           </div>
         </div>
 
-        <FavoritesList 
-          favorites={favorites} 
-          onDelete={handleDeleteFavorite}
-        />
+        <div className="grid xl:grid-cols-3 lg:grid-cols-2 gap-6">
+          <FavoritesList 
+            favorites={favorites} 
+            onDelete={handleDeleteFavorite}
+          />
+          
+          <RecommendationsList />
+          
+          <RecentMangaList />
+        </div>
       </div>
     </div>
   )
