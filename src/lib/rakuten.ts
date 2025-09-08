@@ -70,14 +70,14 @@ export async function searchMangaByTitle(title: string): Promise<RakutenBookItem
   }
 }
 
-export async function getLatestVolumeInfo(seriesName: string): Promise<RakutenBookItem | null> {
+export async function getLatestVolumeInfo(seriesName: string): Promise<RakutenBookItem[]> {
   try {
     console.log(`Getting latest volume info for: ${seriesName}`)
     const books = await searchMangaByTitle(seriesName)
     
     if (books.length === 0) {
       console.log(`No books found for: ${seriesName}`)
-      return null
+      return []
     }
 
     // 検索結果から関連性の高い作品をフィルタリング
@@ -104,11 +104,12 @@ export async function getLatestVolumeInfo(seriesName: string): Promise<RakutenBo
       new Date(b.salesDate).getTime() - new Date(a.salesDate).getTime()
     )
 
-    const result = sortedBooks[0]
-    console.log(`Latest volume for ${seriesName}:`, result?.title, result?.salesDate)
-    return result
+    // 最新3件を取得
+    const results = sortedBooks.slice(0, 3)
+    console.log(`Latest volumes for ${seriesName}:`, results.map(r => ({ title: r.title, date: r.salesDate })))
+    return results
   } catch (error) {
     console.error('Error getting latest volume info:', error)
-    return null
+    return []
   }
 }

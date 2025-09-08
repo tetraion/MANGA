@@ -56,7 +56,16 @@ export default function FavoritesList({ favorites, onDelete }: FavoritesListProp
           {favorite.volumes.length > 0 ? (
             <div className="space-y-3">
               <h4 className="font-medium text-gray-800 border-b pb-2">最新情報</h4>
-              {favorite.volumes.slice(0, 3).map((volume) => (
+              {favorite.volumes
+                .sort((a, b) => {
+                  // 発売日で降順ソート（新しいものが上）
+                  if (!a.release_date && !b.release_date) return 0
+                  if (!a.release_date) return 1
+                  if (!b.release_date) return -1
+                  return new Date(b.release_date).getTime() - new Date(a.release_date).getTime()
+                })
+                .slice(0, 3)
+                .map((volume) => (
                 <div key={volume.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{volume.title}</p>

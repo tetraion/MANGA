@@ -24,51 +24,55 @@ export async function POST() {
           await new Promise(resolve => setTimeout(resolve, 1000))
         }
         
-        const latestInfo = await getLatestVolumeInfo(favorite.series_name)
+        const latestInfoList = await getLatestVolumeInfo(favorite.series_name)
         
-        if (latestInfo) {
-          // 既存の同じタイトルがあるかチェック
-          const { data: existingVolumes } = await supabase
-            .from('volumes')
-            .select('*')
-            .eq('favorite_id', favorite.id)
-            .eq('title', latestInfo.title)
-
-          if (!existingVolumes || existingVolumes.length === 0) {
-            // 巻数を抽出
-            const volumeNumber = extractVolumeNumber(latestInfo.title)
-
-            // 日付を正しい形式に変換
-            const formattedDate = parseJapaneseDate(latestInfo.salesDate)
-
-            // 新しい巻として追加
-            const { data: newVolume, error: volumeError } = await supabase
+        if (latestInfoList.length > 0) {
+          const newVolumes = []
+          
+          // 最新3件をそれぞれ処理
+          for (const latestInfo of latestInfoList) {
+            // 既存の同じタイトルがあるかチェック
+            const { data: existingVolumes } = await supabase
               .from('volumes')
-              .insert([{
-                favorite_id: favorite.id,
-                title: latestInfo.title,
-                volume_number: volumeNumber,
-                release_date: formattedDate,
-                price: latestInfo.itemPrice,
-                rakuten_url: latestInfo.itemUrl
-              }])
-              .select()
-              .single()
+              .select('*')
+              .eq('favorite_id', favorite.id)
+              .eq('title', latestInfo.title)
 
-            if (volumeError) {
-              console.error(`Error adding volume for ${favorite.series_name}:`, volumeError)
-              updateResults.push({
-                series_name: favorite.series_name,
-                success: false,
-                error: volumeError.message
-              })
-            } else {
-              updateResults.push({
-                series_name: favorite.series_name,
-                success: true,
-                new_volume: newVolume
-              })
+            if (!existingVolumes || existingVolumes.length === 0) {
+              // 巻数を抽出
+              const volumeNumber = extractVolumeNumber(latestInfo.title)
+
+              // 日付を正しい形式に変換
+              const formattedDate = parseJapaneseDate(latestInfo.salesDate)
+
+              // 新しい巻として追加
+              const { data: newVolume, error: volumeError } = await supabase
+                .from('volumes')
+                .insert([{
+                  favorite_id: favorite.id,
+                  title: latestInfo.title,
+                  volume_number: volumeNumber,
+                  release_date: formattedDate,
+                  price: latestInfo.itemPrice,
+                  rakuten_url: latestInfo.itemUrl
+                }])
+                .select()
+                .single()
+
+              if (volumeError) {
+                console.error(`Error adding volume for ${favorite.series_name}:`, volumeError)
+              } else {
+                newVolumes.push(newVolume)
+              }
             }
+          }
+          
+          if (newVolumes.length > 0) {
+            updateResults.push({
+              series_name: favorite.series_name,
+              success: true,
+              new_volumes: newVolumes
+            })
           } else {
             updateResults.push({
               series_name: favorite.series_name,
