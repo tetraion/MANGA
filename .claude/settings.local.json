@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.blog)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(claude --mcp-config=.mcp.json --verbose)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "mcp__supabase__get_anon_key",
+      "mcp__supabase__get_logs",
+      "Bash(npx playwright:*)",
+      "Bash(npx @modelcontextprotocol/server-playwright:*)",
+      "Bash(npm search:*)",
+      "Bash(npx @playwright/mcp:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__playwright__browser_snapshot",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase",
+    "github"
+  ]
+}

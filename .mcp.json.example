@@ -1,0 +1,29 @@
+{
+    "mcpServers": {
+        "supabase": {
+            "command": "cmd",
+            "args": [
+                "/c",
+                "npx",
+                "-y",
+                "@supabase/mcp-server-supabase@latest",
+                "--read-only",
+                "--project-ref=your_supabase_project_ref_here"
+            ],
+            "env": {
+                "SUPABASE_ACCESS_TOKEN": "your_supabase_access_token_here"
+            }
+        },
+        "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_personal_access_token_here"
+            }
+        },
+        "playwright": {
+            "command": "npx",
+            "args": ["-y", "@playwright/mcp"]
+        }
+    }
+}

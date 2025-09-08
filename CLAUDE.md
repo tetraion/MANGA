@@ -4,26 +4,92 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This appears to be a manga-related project that is currently in its initial setup phase. The repository contains only an empty `.env` file at this time.
+漫画新作通知アプリケーション - Next.js、Supabase、楽天ブックスAPIを使用した漫画の新刊情報を確認できるWebアプリケーション
 
-## Development Setup
+## Development Commands
 
-Since this is a new project, the development commands and architecture will need to be established as the project grows. When setting up the project, consider adding:
+```bash
+# 開発サーバー起動
+npm run dev
 
-- Package management configuration (package.json for Node.js, requirements.txt for Python, etc.)
-- Build and development scripts
-- Testing framework setup
-- Linting and formatting tools
+# ビルド
+npm run build
+
+# 本番サーバー起動
+npm run start
+
+# ESLintチェック
+npm run lint
+```
 
 ## Architecture
 
-The project architecture is yet to be defined. As development progresses, this section should be updated with:
+### Tech Stack
+- **Frontend**: Next.js 15 (App Router) with TypeScript
+- **UI**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **External API**: 楽天ブックスAPI
+- **Deployment**: Vercel
 
-- Main application structure
-- Key directories and their purposes
-- Data flow and component relationships
-- External dependencies and integrations
+### File Structure
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── favorites/
+│   │   │   ├── route.ts          # お気に入り作品のCRUD
+│   │   │   └── [id]/route.ts     # 特定作品の削除
+│   │   └── update/
+│   │       └── route.ts          # 楽天APIから情報更新
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx                  # メイン画面
+├── components/
+│   ├── AddForm.tsx               # 作品追加フォーム
+│   └── FavoritesList.tsx         # お気に入り一覧表示
+└── lib/
+    ├── supabase.ts               # Supabaseクライアント設定
+    └── rakuten.ts                # 楽天ブックスAPI呼び出し
+```
 
-## Environment Configuration
+### Database Schema
+```sql
+-- お気に入り作品テーブル
+CREATE TABLE favorites (
+  id SERIAL PRIMARY KEY,
+  series_name TEXT NOT NULL,
+  author_name TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-The project includes a `.env` file for environment variables. Ensure sensitive information like API keys are never committed to the repository.
+-- 新刊情報テーブル
+CREATE TABLE volumes (
+  id SERIAL PRIMARY KEY,
+  favorite_id INTEGER REFERENCES favorites(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  volume_number INTEGER,
+  release_date DATE,
+  price INTEGER,
+  rakuten_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## Environment Variables
+
+```bash
+# Supabase設定
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# 楽天ブックスAPI設定
+RAKUTEN_APPLICATION_ID=your_rakuten_application_id_here
+```
+
+## Setup Instructions
+
+1. Supabaseプロジェクト作成とテーブル作成
+2. 楽天デベロッパー登録とAPI Key取得
+3. 環境変数を.envファイルに設定
+4. `npm install` で依存関係をインストール
+5. `npm run dev` で開発サーバー起動

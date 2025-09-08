@@ -11,6 +11,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+.next/
 
 # Logs
 *.log
@@ -23,3 +24,14 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Next.js
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# MCP configuration (contains secrets)
+.mcp.json
