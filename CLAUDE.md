@@ -1,10 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-漫画新作通知アプリケーション - Next.js、Supabase、楽天ブックスAPIを使用した漫画の新刊情報を確認できるWebアプリケーション
+漫画新作通知アプリケーション - Next.js、Supabase、楽天ブックスAPIを使用した漫画新刊情報・AI推薦システム
 
 ## Development Commands
 
@@ -25,12 +21,12 @@ npm run lint
 ## Architecture
 
 ### Tech Stack
-- **Frontend**: Next.js 15 (App Router) with TypeScript
-- **UI**: Tailwind CSS
-- **Database**: Supabase (PostgreSQL)
-- **External API**: 楽天ブックスAPI
-- **AI**: Groq API (gemma2-9b-it)
-- **Deployment**: Vercel
+- Next.js 15 (App Router) + TypeScript
+- Tailwind CSS
+- Supabase (PostgreSQL)
+- 楽天ブックスAPI
+- Groq API (gemma2-9b-it)
+- Vercel
 
 ### File Structure
 ```
@@ -41,7 +37,9 @@ src/
 │   │   │   ├── route.ts          # お気に入り作品のCRUD
 │   │   │   └── [id]/route.ts     # 特定作品の削除
 │   │   ├── recommendations/
-│   │   │   └── route.ts          # AIおすすめ機能
+│   │   │   └── route.ts          # AIおすすめ機能（一般・新作統合）
+│   │   ├── usage/
+│   │   │   └── route.ts          # API使用量管理
 │   │   └── update/
 │   │       └── route.ts          # 楽天APIから情報更新
 │   ├── globals.css
@@ -54,7 +52,7 @@ src/
 └── lib/
     ├── supabase.ts               # Supabaseクライアント設定
     ├── rakuten.ts                # 楽天ブックスAPI呼び出し
-    └── groq.ts                   # Groq AI API呼び出し
+    └── groq.ts                   # Groq AI API呼び出し（二段階推薦システム）
 ```
 
 ### Database Schema
@@ -76,6 +74,17 @@ CREATE TABLE volumes (
   release_date DATE,
   price INTEGER,
   rakuten_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- API使用量管理テーブル
+CREATE TABLE api_usage (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  service_type TEXT NOT NULL,
+  daily_count INTEGER DEFAULT 0,
+  monthly_count INTEGER DEFAULT 0,
+  last_used DATE NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -103,17 +112,42 @@ GROQ_API_KEY=your_groq_api_key_here
 5. `npm install` で依存関係をインストール
 6. `npm run dev` で開発サーバー起動
 
-## 新機能: AIおすすめ機能
+## 機能
 
-お気に入り登録している漫画の傾向を分析し、AIが新しい漫画をおすすめする機能です。
+### AIおすすめ
+- 二段階推薦: AI候補生成(6件) → 楽天API評価検証 → AI最終選定(3件)
+- 一般: 評価3.0+, レビュー5件+
+- 新作: 評価2.5+, レビュー制限緩和
+- 制限: 100回/日, 3000回/月, IP管理
+- エンドポイント: `/api/recommendations[?type=recent]`
 
-### 機能概要
-- Groq API（gemma2-9b-it）を使用
-- ユーザーのお気に入り漫画を分析
-- 類似する嗜好の新作漫画を3つ推薦
-- ジャンル・作者・おすすめ理由を表示
+### 基本機能
+- お気に入り漫画管理 (CRUD)
+- 楽天API新刊情報取得
+- 使用量制限管理
 
-### 使用方法
-1. お気に入り漫画を複数登録
-2. メイン画面右側の「AIおすすめ漫画」セクションで「おすすめを取得」ボタンをクリック
-3. AIが分析した結果に基づくおすすめ漫画が表示される
+## Claude 作業ルール
+
+### 必須プロセス
+1. 変更内容の事前提示（対象ファイル・箇所・理由）
+2. ユーザー承認待ち（明示的な許可まで実行しない）
+3. 段階的実行（大規模変更は分割）
+
+### 禁止
+- 無断でのコード変更
+- 一度に大量ファイル変更
+
+## 技術仕様
+
+### 現在の構成
+- 単一エンドポイント + クエリパラメータ方式
+- 二段階AI推薦システム（6候補→フィルタ→3選定）
+- 評価基準: 一般(3.0+,5件+), 新作(2.5+,緩和)
+- 使用制限: IPベース, 日次/月間管理
+- エラー対応: 部分成功表示, 429制限対応
+
+### 変更時注意
+- 候補数変更 → API制限影響
+- 評価基準変更 → モード差異維持
+- エンドポイント変更 → フロント同期
+- スキーマ変更 → マイグレーション必須
