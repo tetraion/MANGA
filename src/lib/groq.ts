@@ -28,35 +28,8 @@ export async function getAIRecommendations(favoritesList: string[], focusRecent:
 お気に入り漫画：${favoritesText}
 
 以下の手順で回答してください：
-1. まず、ユーザーの好みに合う2023年以降の新しい漫画のタイトルを決定してください
-2. 決定したタイトルに対応する正確な作者名とジャンルを記載してください
-3. そのタイトルをおすすめする理由を記載してください
-
-以下のJSON形式で回答してください：
-[
-  {
-    "title": "おすすめ漫画のタイトル",
-    "author": "上記タイトルの正確な作者名",
-    "genre": "上記タイトルの正確なジャンル",
-    "reason": "おすすめ理由（なぜこのユーザーに合うか、新しい作品の魅力）"
-  }
-]
-
-重要：
-- 2023年以降に連載開始した漫画のみを推薦してください
-- 実在する漫画のみを推薦してください
-- タイトルを決めた後、そのタイトルに正確に対応する作者名とジャンルを記載してください
-- ユーザーの既存のお気に入りと重複しないでください
-- おすすめ理由はユーザーの好みとの関連性と新作の魅力を含めてください
-` : `
-あなたは漫画に詳しいAIアシスタントです。以下のお気に入り漫画リストから、ユーザーの好みを分析して新しい漫画を3つおすすめしてください。
-
-お気に入り漫画：${favoritesText}
-
-以下の手順で回答してください：
-1. まず、おすすめしたい漫画のタイトルを決定してください
-2. 決定したタイトルに対応する正確な作者名とジャンルを記載してください
-3. そのタイトルをおすすめする理由を記載してください
+1. まず、おすすめしたい2023年以降の漫画のタイトルとおすすめな理由を決めてください
+2. 決定したタイトルに対応する正確な作者名とジャンルを検索してください
 
 以下のJSON形式で回答してください：
 [
@@ -68,11 +41,25 @@ export async function getAIRecommendations(favoritesList: string[], focusRecent:
   }
 ]
 
-重要：
-- 実在する漫画のみを推薦してください
-- タイトルを決めた後、そのタイトルに正確に対応する作者名とジャンルを記載してください
-- ユーザーの既存のお気に入りと重複しないでください
-- おすすめ理由は具体的で説得力のあるものにしてください
+` : `
+あなたは漫画に詳しいAIアシスタントです。以下のお気に入り漫画リストから、ユーザーの好みを分析して新しい漫画を3つおすすめしてください。
+
+お気に入り漫画：${favoritesText}
+
+以下の手順で回答してください：
+1. まず、おすすめしたい漫画のタイトルとおすすめな理由を決めてください
+2. 決定したタイトルに対応する正確な作者名とジャンルを検索してください
+
+以下のJSON形式で回答してください：
+[
+  {
+    "title": "おすすめ漫画のタイトル",
+    "author": "上記タイトルの正確な作者名",
+    "genre": "上記タイトルの正確なジャンル",
+    "reason": "おすすめ理由（なぜこのユーザーに合うか）"
+  }
+]
+
 `;
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -108,8 +95,12 @@ export async function getAIRecommendations(favoritesList: string[], focusRecent:
   try {
     const jsonStart = content.indexOf('[');
     const jsonEnd = content.lastIndexOf(']') + 1;
-    const jsonString = content.slice(jsonStart, jsonEnd);
     
+    if (jsonStart === -1 || jsonEnd === 0) {
+      throw new Error('No JSON array found in AI response');
+    }
+    
+    const jsonString = content.slice(jsonStart, jsonEnd);
     return JSON.parse(jsonString) as MangaRecommendation[];
   } catch (error) {
     console.error('Failed to parse AI response:', content);

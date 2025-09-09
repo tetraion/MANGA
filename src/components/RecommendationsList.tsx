@@ -19,85 +19,45 @@ export default function RecommendationsList() {
   const [basedOn, setBasedOn] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [usageStatus, setUsageStatus] = useState({ daily: 0, monthly: 0 });
 
-  // 使用制限チェック
-  const checkUsageLimit = (): { canUse: boolean; message?: string } => {
-    const today = new Date().toDateString();
-    const currentMonth = new Date().getMonth();
-    const currentTime = Date.now();
-    
-    const lastUsedDate = localStorage.getItem('ai-recommendation-date');
-    const lastUsedMonth = parseInt(localStorage.getItem('ai-recommendation-month') || '-1');
-    const lastUsedTime = parseInt(localStorage.getItem('ai-recommendation-last-time') || '0');
-    const dailyCount = parseInt(localStorage.getItem('ai-recommendation-daily') || '0');
-    const monthlyCount = parseInt(localStorage.getItem('ai-recommendation-monthly') || '0');
-    
-    // 分間制限チェック（RPM=30なので、2秒間隔で制限）
-    if (currentTime - lastUsedTime < 2000) {
-      return { 
-        canUse: false, 
-        message: '少し間隔をあけてお試しください（2秒待機）。' 
-      };
+  // 使用状況を取得
+  const fetchUsageStatus = async () => {
+    try {
+      const response = await fetch('/api/usage?service=recommendations');
+      if (response.ok) {
+        const data = await response.json();
+        setUsageStatus({ daily: data.daily, monthly: data.monthly });
+      }
+    } catch (error) {
+      console.error('Failed to fetch usage status:', error);
     }
-    
-    // 月が変わったらリセット
-    if (lastUsedMonth !== currentMonth) {
-      localStorage.setItem('ai-recommendation-month', currentMonth.toString());
-      localStorage.setItem('ai-recommendation-monthly', '0');
-      localStorage.setItem('ai-recommendation-daily', '0');
-      localStorage.setItem('ai-recommendation-date', today);
-      return { canUse: true };
-    }
-    
-    // 日が変わったらデイリーカウントリセット
-    if (lastUsedDate !== today) {
-      localStorage.setItem('ai-recommendation-date', today);
-      localStorage.setItem('ai-recommendation-daily', '0');
-      return { canUse: true };
-    }
-    
-    // 制限チェック（実際のGroq制限に基づく現実的な値）
-    // Free tier: RPD=14,400なので、1日100回程度に制限（余裕を持たせて）
-    if (dailyCount >= 100) {
-      return { 
-        canUse: false, 
-        message: '1日の利用制限（100回）に達しました。明日再度お試しください。' 
-      };
-    }
-    
-    // 月間3,000回（1日100回×30日）
-    if (monthlyCount >= 3000) {
-      return { 
-        canUse: false, 
-        message: '月間利用制限（3,000回）に達しました。来月まで お待ちください。' 
-      };
-    }
-    
-    return { canUse: true };
   };
 
-  // 使用回数を記録
-  const recordUsage = () => {
-    const dailyCount = parseInt(localStorage.getItem('ai-recommendation-daily') || '0');
-    const monthlyCount = parseInt(localStorage.getItem('ai-recommendation-monthly') || '0');
-    
-    localStorage.setItem('ai-recommendation-daily', (dailyCount + 1).toString());
-    localStorage.setItem('ai-recommendation-monthly', (monthlyCount + 1).toString());
-    localStorage.setItem('ai-recommendation-last-time', Date.now().toString());
-  };
+  useEffect(() => {
+    fetchUsageStatus();
+  }, []);
 
   const fetchRecommendations = async () => {
-    // 使用制限チェック
-    const limitCheck = checkUsageLimit();
-    if (!limitCheck.canUse) {
-      setError(limitCheck.message || '利用制限に達しています');
-      return;
-    }
-
     setLoading(true);
     setError('');
     
     try {
+      // 使用制限チェックとカウント増加をサーバー側で実行
+      const usageResponse = await fetch('/api/usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceType: 'recommendations' })
+      });
+      
+      const usageData = await usageResponse.json();
+      
+      if (!usageResponse.ok) {
+        setError(usageData.error || '利用制限に達しています');
+        return;
+      }
+      
+      // 使用制限チェックをクリアした場合のみAPIを呼び出し
       const response = await fetch('/api/recommendations');
       const data: RecommendationsResponse | { error: string } = await response.json();
 
@@ -108,7 +68,8 @@ export default function RecommendationsList() {
       if ('recommendations' in data) {
         setRecommendations(data.recommendations);
         setBasedOn(data.basedOn);
-        recordUsage(); // 成功時のみカウントを増やす
+        // 使用状況を更新
+        setUsageStatus({ daily: usageData.daily, monthly: usageData.monthly });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
@@ -116,15 +77,6 @@ export default function RecommendationsList() {
       setLoading(false);
     }
   };
-
-  // 現在の使用状況を取得（Hydrationエラー対策）
-  const [usageStatus, setUsageStatus] = useState({ daily: 0, monthly: 0 });
-
-  useEffect(() => {
-    const dailyCount = parseInt(localStorage.getItem('ai-recommendation-daily') || '0');
-    const monthlyCount = parseInt(localStorage.getItem('ai-recommendation-monthly') || '0');
-    setUsageStatus({ daily: dailyCount, monthly: monthlyCount });
-  }, []);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
