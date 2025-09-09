@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getAIRecommendations } from '@/lib/groq';
+import { getVerifiedAIRecommendations } from '@/lib/groq';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // クエリパラメータを取得
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') || 'general';
+    
     const { data: favorites, error } = await supabase
       .from('favorites')
       .select('series_name, author_name');
@@ -27,11 +31,17 @@ export async function GET() {
       fav.author_name ? `${fav.series_name}（${fav.author_name}）` : fav.series_name
     );
 
-    const recommendations = await getAIRecommendations(favoritesList);
+    // タイプに応じて設定を変更
+    const config = type === 'recent' 
+      ? { minRating: 2.5, targetYear: '2025' }
+      : { minRating: 3.0 };
+
+    const recommendations = await getVerifiedAIRecommendations(favoritesList, config);
 
     return NextResponse.json({
       recommendations,
-      basedOn: favoritesList
+      basedOn: favoritesList,
+      type
     });
 
   } catch (error) {

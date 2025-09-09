@@ -7,11 +7,16 @@ interface MangaRecommendation {
   author: string;
   genre: string;
   reason: string;
+  reviewAverage?: number;
+  reviewCount?: number;
+  qualityScore?: number;
+  isVerified?: boolean;
 }
 
 interface RecommendationsResponse {
   recommendations: MangaRecommendation[];
   basedOn: string[];
+  type?: string;
 }
 
 export default function RecommendationsList() {
@@ -20,6 +25,7 @@ export default function RecommendationsList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [usageStatus, setUsageStatus] = useState({ daily: 0, monthly: 0 });
+  const [mounted, setMounted] = useState(false);
 
   // 使用状況を取得
   const fetchUsageStatus = async () => {
@@ -35,10 +41,33 @@ export default function RecommendationsList() {
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchUsageStatus();
   }, []);
 
-  const fetchRecommendations = async () => {
+  // SSR時は何も表示しない（Hydrationエラー回避）
+  if (!mounted) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">🤖 AIおすすめ漫画</h2>
+          <div className="flex gap-2">
+            <button className="px-3 py-2 rounded-md text-white font-medium text-sm bg-gray-400">
+              一般おすすめ
+            </button>
+            <button className="px-3 py-2 rounded-md text-white font-medium text-sm bg-gray-400">
+              2025年新作
+            </button>
+          </div>
+        </div>
+        <div className="text-gray-500 text-center py-8">
+          読み込み中...
+        </div>
+      </div>
+    );
+  }
+
+  const fetchRecommendations = async (type: string = 'general') => {
     setLoading(true);
     setError('');
     
@@ -58,7 +87,8 @@ export default function RecommendationsList() {
       }
       
       // 使用制限チェックをクリアした場合のみAPIを呼び出し
-      const response = await fetch('/api/recommendations');
+      const endpoint = type === 'recent' ? '/api/recommendations?type=recent' : '/api/recommendations';
+      const response = await fetch(endpoint);
       const data: RecommendationsResponse | { error: string } = await response.json();
 
       if (!response.ok) {
@@ -82,17 +112,30 @@ export default function RecommendationsList() {
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">🤖 AIおすすめ漫画</h2>
-        <button
-          onClick={fetchRecommendations}
-          disabled={loading}
-          className={`px-4 py-2 rounded-md text-white font-medium ${
-            loading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-500 hover:bg-blue-600'
-          }`}
-        >
-          {loading ? '分析中...' : 'おすすめを取得'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => fetchRecommendations('general')}
+            disabled={loading}
+            className={`px-3 py-2 rounded-md text-white font-medium text-sm ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-500 hover:bg-blue-600'
+            }`}
+          >
+            {loading ? '分析中...' : '一般おすすめ'}
+          </button>
+          <button
+            onClick={() => fetchRecommendations('recent')}
+            disabled={loading}
+            className={`px-3 py-2 rounded-md text-white font-medium text-sm ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
+          >
+            {loading ? '分析中...' : '2025年新作'}
+          </button>
+        </div>
       </div>
 
       {/* 使用状況表示 */}
@@ -109,7 +152,8 @@ export default function RecommendationsList() {
       {basedOn.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
           <p className="text-blue-700 text-sm">
-            <strong>分析対象：</strong>{basedOn.slice(0, 3).join('、')}
+            <strong>分析対象：</strong>
+            {basedOn.slice(0, 3).join('、')}
             {basedOn.length > 3 && `など${basedOn.length}作品`}
           </p>
         </div>
@@ -126,6 +170,21 @@ export default function RecommendationsList() {
                 <div>
                   <h3 className="font-semibold text-lg">{rec.title}</h3>
                   <p className="text-gray-600">{rec.author}</p>
+                  {/* 評価情報表示 */}
+                  {rec.isVerified && (rec.reviewAverage || rec.reviewCount) && (
+                    <div className="flex items-center gap-2 mt-1 text-xs">
+                      {rec.reviewAverage && typeof rec.reviewAverage === 'number' && (
+                        <span className="bg-yellow-100 px-2 py-1 rounded-md text-yellow-800">
+                          ⭐ {rec.reviewAverage.toFixed(1)}
+                        </span>
+                      )}
+                      {rec.reviewCount && typeof rec.reviewCount === 'number' && (
+                        <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-700">
+                          {rec.reviewCount}件
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <span className="bg-gray-100 px-2 py-1 rounded-md text-xs text-gray-700">
                   {rec.genre}

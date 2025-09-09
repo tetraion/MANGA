@@ -7,6 +7,8 @@ export interface RakutenBookItem {
   itemUrl: string
   largeImageUrl: string
   isbn: string
+  reviewCount?: number
+  reviewAverage?: number
 }
 
 export interface RakutenApiResponse {
@@ -66,6 +68,91 @@ export async function searchMangaByTitle(title: string): Promise<RakutenBookItem
     return data.Items?.map(item => item.Item) || []
   } catch (error) {
     console.error('Error fetching from Rakuten API:', error)
+    throw error
+  }
+}
+
+export async function searchMangaWithRatings(
+  title: string, 
+  minRating: number = 3.0, 
+  minReviewCount: number = 5, 
+  targetYear?: string
+): Promise<RakutenBookItem[]> {
+  const applicationId = process.env.RAKUTEN_APPLICATION_ID
+  
+  if (!applicationId) {
+    throw new Error('RAKUTEN_APPLICATION_ID is not set')
+  }
+
+  // パラメータを設定（年指定がある場合は期間も制限）
+  const params = new URLSearchParams({
+    applicationId,
+    title,
+    booksGenreId: '001001',
+    sort: '-releaseDate',
+    hits: targetYear ? '50' : '30'
+  })
+
+  // 年指定がある場合は販売日期間を追加
+  if (targetYear) {
+    params.set('salesDateFrom', `${targetYear}-01-01`)
+    console.log(`Searching from ${targetYear} for recent releases`)
+  }
+
+  const url = `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`
+  
+  try {
+    console.log(`Searching manga with ratings for: ${title}${targetYear ? ` (${targetYear}+)` : ''}`)
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Rakuten API Error ${response.status}:`, errorText)
+      console.error('Request URL:', url)
+      
+      if (response.status === 429) {
+        throw new Error('API rate limit exceeded. Please try again later.')
+      }
+      throw new Error(`Rakuten API error: ${response.status} - ${errorText}`)
+    }
+
+    const data: RakutenApiResponse = await response.json()
+    const books = data.Items?.map(item => item.Item) || []
+    
+    console.log(`Found ${books.length} books for: ${title}`)
+    
+    // 年指定がある場合は評価基準を緩和（新作対応）
+    const isRecentMode = !!targetYear
+    const filteredBooks = books.filter(book => {
+      if (isRecentMode) {
+        // 新作モード：評価がない場合は通す、ある場合は最低基準をチェック
+        if (!book.reviewAverage) return true
+        return book.reviewAverage >= minRating
+      } else {
+        // 通常モード：評価とレビュー数の両方をチェック
+        const hasGoodRating = book.reviewAverage && book.reviewAverage >= minRating
+        const hasEnoughReviews = book.reviewCount && book.reviewCount >= minReviewCount
+        return hasGoodRating && hasEnoughReviews
+      }
+    })
+
+    // 品質スコア計算
+    const scoredBooks = filteredBooks.map(book => {
+      const rating = book.reviewAverage || 3.0 // 未評価は3.0とみなす
+      const reviewCount = book.reviewCount || 1 // 未レビューは1とみなす
+      const baseScore = rating * Math.log10(reviewCount + 1)
+      
+      return {
+        ...book,
+        qualityScore: isRecentMode ? baseScore * 1.2 : baseScore // 新作ボーナス
+      }
+    }).sort((a, b) => b.qualityScore - a.qualityScore)
+
+    console.log(`Found ${books.length} books, ${filteredBooks.length} passed filter for: ${title}`)
+    
+    return scoredBooks.slice(0, isRecentMode ? 15 : 10)
+  } catch (error) {
+    console.error('Error fetching rated manga:', error)
     throw error
   }
 }
