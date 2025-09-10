@@ -98,17 +98,6 @@ export async function getAIRecommendations(favoritesList: string[], targetYear?:
   } catch (error) {
     console.error('Failed to parse AI response:', content);
     console.error('Parse error details:', error);
-    
-    // フォールバック: より堅牢なJSON修正を試行
-    try {
-      const fixedJson = attemptJsonRepair(content);
-      if (fixedJson) {
-        return JSON.parse(fixedJson) as MangaRecommendation[];
-      }
-    } catch (fallbackError) {
-      console.error('JSON repair also failed:', fallbackError);
-    }
-    
     throw new Error('Failed to parse AI recommendations');
   }
 }
@@ -135,37 +124,6 @@ function extractAndFixJson(content: string): string | null {
   return jsonString;
 }
 
-function attemptJsonRepair(content: string): string | null {
-  try {
-    // より積極的な修正を試行
-    const matches = content.match(/\[[\s\S]*?\]/g);
-    if (!matches || matches.length === 0) return null;
-    
-    const longestMatch = matches.reduce((a, b) => a.length > b.length ? a : b);
-    
-    // 一般的なJSON構文エラーを修正
-    let repaired = longestMatch
-      .replace(/\n/g, ' ') // 改行を空白に
-      .replace(/\s+/g, ' ') // 連続空白を単一空白に
-      .replace(/,\s*([}\]])/g, '$1') // 末尾カンマ除去
-      .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // プロパティ名クォート
-      .replace(/:\s*([^"\[\{\d][^,}\]]*[^,}\]\s])/g, (match, value) => {
-        // 値のクォート修正（既にクォートされていない場合）
-        const trimmedValue = value.trim();
-        if (!trimmedValue.startsWith('"') && !trimmedValue.startsWith('[') && !trimmedValue.startsWith('{')) {
-          return `: "${trimmedValue}"`;
-        }
-        return match;
-      })
-      .trim();
-    
-    // 基本的な構文チェック
-    JSON.parse(repaired);
-    return repaired;
-  } catch {
-    return null;
-  }
-}
 
 interface RecommendationOptions {
   minRating: number;
@@ -372,20 +330,6 @@ ${candidatesText}
   } catch (error) {
     console.error('Failed to parse AI selection response:', content);
     console.error('Selection parse error details:', error);
-    
-    // フォールバック: より堅牢なJSON修正を試行
-    try {
-      const fixedJson = attemptJsonRepair(content);
-      if (fixedJson) {
-        const selectedRecommendations = JSON.parse(fixedJson) as MangaRecommendation[];
-        return selectedRecommendations.map(selected => {
-          const original = filteredCandidates.find(c => c.title === selected.title);
-          return original ? { ...original, reason: selected.reason } : selected;
-        });
-      }
-    } catch (fallbackError) {
-      console.error('JSON repair for selection also failed:', fallbackError);
-    }
     
     // 最終フォールバック：品質スコア順で返す
     return filteredCandidates.slice(0, finalCount);
