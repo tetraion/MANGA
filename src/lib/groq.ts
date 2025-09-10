@@ -91,11 +91,9 @@ export async function getAIRecommendations(favoritesList: string[], targetYear?:
     // JSON文字列を抽出・修正
     let jsonString = extractAndFixJson(content);
     if (!jsonString) {
-      console.log('AI response content:', content);
       throw new Error('No valid JSON array found in AI response');
     }
     
-    console.log('Extracted and fixed JSON:', jsonString);
     return JSON.parse(jsonString) as MangaRecommendation[];
   } catch (error) {
     console.error('Failed to parse AI response:', content);
@@ -105,7 +103,6 @@ export async function getAIRecommendations(favoritesList: string[], targetYear?:
     try {
       const fixedJson = attemptJsonRepair(content);
       if (fixedJson) {
-        console.log('Repaired JSON:', fixedJson);
         return JSON.parse(fixedJson) as MangaRecommendation[];
       }
     } catch (fallbackError) {
@@ -212,8 +209,6 @@ export async function getVerifiedAIRecommendations(
             isVerified: true
           };
         } else {
-          const reason = options.targetYear ? `may not be ${options.targetYear}+ release` : 'rating below threshold or not found';
-          console.log(`Filtered out ${candidate.title} - ${reason}`);
           return null; // フィルタアウト
         }
       } catch (error) {
@@ -241,14 +236,12 @@ export async function getVerifiedAIRecommendations(
     
     // 次のバッチまで待機（最後のバッチでない場合）
     if (i + BATCH_SIZE < candidates.length) {
-      console.log(`Processed batch ${Math.floor(i/BATCH_SIZE) + 1}, waiting ${DELAY_BETWEEN_BATCHES}ms...`);
       await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
     }
   }
   
   // 検証済み候補が少ない場合は未検証候補も含める
   if (filteredCandidates.filter(c => c.isVerified).length < 3) {
-    console.log('Insufficient verified candidates, including unverified ones');
     
     // 未検証の候補を元のリストから追加
     candidates.forEach(candidate => {
@@ -269,7 +262,6 @@ export async function getVerifiedAIRecommendations(
     return (b.qualityScore || 0) - (a.qualityScore || 0);
   });
   
-  console.log(`Final candidates: ${sortedCandidates.length} (${sortedCandidates.filter(c => c.isVerified).length} verified)`);
   
   // 候補が3件以下の場合は直接返す
   if (sortedCandidates.length <= 3) {
@@ -366,11 +358,9 @@ ${candidatesText}
     // JSON文字列を抽出・修正
     let jsonString = extractAndFixJson(content);
     if (!jsonString) {
-      console.log('AI selection response content:', content);
       throw new Error('No valid JSON array found in AI response');
     }
     
-    console.log('Extracted and fixed selection JSON:', jsonString);
     const selectedRecommendations = JSON.parse(jsonString) as MangaRecommendation[];
     
     // 元の候補から評価データを継承
@@ -387,7 +377,6 @@ ${candidatesText}
     try {
       const fixedJson = attemptJsonRepair(content);
       if (fixedJson) {
-        console.log('Repaired selection JSON:', fixedJson);
         const selectedRecommendations = JSON.parse(fixedJson) as MangaRecommendation[];
         return selectedRecommendations.map(selected => {
           const original = filteredCandidates.find(c => c.title === selected.title);

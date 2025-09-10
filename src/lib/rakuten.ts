@@ -101,7 +101,6 @@ async function retryWithBackoff<T>(
       
       // 指数バックオフで待機
       const delayTime = baseDelay * Math.pow(2, attempt);
-      console.log(`Rate limit hit, retrying in ${delayTime}ms (attempt ${attempt + 1}/${maxRetries})`);
       await delay(delayTime);
     }
   }
@@ -139,7 +138,6 @@ export async function searchMangaWithRatings(
   const url = `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`
   
   return await retryWithBackoff(async () => {
-    console.log(`Searching manga with ratings for: ${title}${targetYear ? ` (${targetYear}+)` : ''}`)
     const response = await fetch(url)
     
     if (!response.ok) {
@@ -156,21 +154,19 @@ export async function searchMangaWithRatings(
     const data: RakutenApiResponse = await response.json()
     const books = data.Items?.map(item => item.Item) || []
     
-    console.log(`Found ${books.length} books for: ${title}`)
-    
-    // 年指定がある場合は評価基準を緩和（新作対応）
+    // 年指定時（新作モード）は評価基準を緩和
     const isRecentMode = !!targetYear
     const filteredBooks = books.filter(book => {
+      const hasGoodRating = book.reviewAverage && book.reviewAverage >= minRating
+      const hasEnoughReviews = book.reviewCount && book.reviewCount >= minReviewCount
+      
+      // 新作モード：レビュー数制限を緩和、評価なしも許可
       if (isRecentMode) {
-        // 新作モード：評価がない場合は通す、ある場合は最低基準をチェック
-        if (!book.reviewAverage) return true
-        return book.reviewAverage >= minRating
-      } else {
-        // 通常モード：評価とレビュー数の両方をチェック
-        const hasGoodRating = book.reviewAverage && book.reviewAverage >= minRating
-        const hasEnoughReviews = book.reviewCount && book.reviewCount >= minReviewCount
-        return hasGoodRating && hasEnoughReviews
+        return !book.reviewAverage || hasGoodRating
       }
+      
+      // 通常モード：評価とレビュー数の両方が必要
+      return hasGoodRating && hasEnoughReviews
     })
 
     // 品質スコア計算
@@ -185,7 +181,6 @@ export async function searchMangaWithRatings(
       }
     }).sort((a, b) => b.qualityScore - a.qualityScore)
 
-    console.log(`Found ${books.length} books, ${filteredBooks.length} passed filter for: ${title}`)
     
     return scoredBooks.slice(0, 10)
   });
