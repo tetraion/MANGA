@@ -72,6 +72,43 @@ export async function searchMangaByTitle(title: string): Promise<RakutenBookItem
   }
 }
 
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // レート制限エラーでない場合は即座に失敗
+      if (!lastError.message.includes('API rate limit exceeded')) {
+        throw lastError;
+      }
+      
+      // 最後の試行の場合は例外を投げる
+      if (attempt === maxRetries - 1) {
+        break;
+      }
+      
+      // 指数バックオフで待機
+      const delayTime = baseDelay * Math.pow(2, attempt);
+      console.log(`Rate limit hit, retrying in ${delayTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await delay(delayTime);
+    }
+  }
+  
+  throw lastError!;
+}
+
 export async function searchMangaWithRatings(
   title: string, 
   minRating: number = 3.0, 
@@ -90,7 +127,7 @@ export async function searchMangaWithRatings(
     title,
     booksGenreId: '001001',
     sort: '-releaseDate',
-    hits: targetYear ? '50' : '30'
+    hits: '10'
   })
 
   // 年指定がある場合は販売日期間を追加
@@ -101,7 +138,7 @@ export async function searchMangaWithRatings(
 
   const url = `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${params.toString()}`
   
-  try {
+  return await retryWithBackoff(async () => {
     console.log(`Searching manga with ratings for: ${title}${targetYear ? ` (${targetYear}+)` : ''}`)
     const response = await fetch(url)
     
@@ -140,21 +177,18 @@ export async function searchMangaWithRatings(
     const scoredBooks = filteredBooks.map(book => {
       const rating = book.reviewAverage || 3.0 // 未評価は3.0とみなす
       const reviewCount = book.reviewCount || 1 // 未レビューは1とみなす
-      const baseScore = rating * Math.log10(reviewCount + 1)
+      const qualityScore = rating * Math.log10(reviewCount + 1)
       
       return {
         ...book,
-        qualityScore: isRecentMode ? baseScore * 1.2 : baseScore // 新作ボーナス
+        qualityScore
       }
     }).sort((a, b) => b.qualityScore - a.qualityScore)
 
     console.log(`Found ${books.length} books, ${filteredBooks.length} passed filter for: ${title}`)
     
-    return scoredBooks.slice(0, isRecentMode ? 15 : 10)
-  } catch (error) {
-    console.error('Error fetching rated manga:', error)
-    throw error
-  }
+    return scoredBooks.slice(0, 10)
+  });
 }
 
 export async function getLatestVolumeInfo(seriesName: string): Promise<RakutenBookItem[]> {

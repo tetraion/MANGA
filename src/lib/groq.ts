@@ -188,45 +188,93 @@ export async function getVerifiedAIRecommendations(
   
   const filteredCandidates: MangaRecommendation[] = [];
   
-  for (const candidate of candidates) {
-    try {
-      // レビュー数の制限は年指定時（新作モード）では緩和
-      const minReviewCount = options.targetYear ? 0 : 5;
-      const books = await searchMangaWithRatings(candidate.title, options.minRating, minReviewCount, options.targetYear);
-      
-      if (books.length > 0) {
-        const bestMatch = books[0];
-        filteredCandidates.push({
-          ...candidate,
-          reviewAverage: bestMatch.reviewAverage || undefined,
-          reviewCount: bestMatch.reviewCount || undefined,
-          qualityScore: bestMatch.reviewAverage ? bestMatch.reviewAverage * Math.log10((bestMatch.reviewCount || 1) + 1) : undefined,
-          isVerified: true
-        });
-      } else {
-        const reason = options.targetYear ? `may not be ${options.targetYear}+ release` : 'rating below threshold or not found';
-        console.log(`Filtered out ${candidate.title} - ${reason}`);
+  // 並行処理数を制限（2つまで同時実行）
+  const BATCH_SIZE = 2;
+  const DELAY_BETWEEN_BATCHES = 2000; // バッチ間の待機時間を増加
+  
+  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+    const batch = candidates.slice(i, i + BATCH_SIZE);
+    
+    // バッチ内は並行処理
+    const batchPromises = batch.map(async (candidate) => {
+      try {
+        // レビュー数の制限は年指定時（新作モード）では緩和
+        const minReviewCount = options.targetYear ? 0 : 5;
+        const books = await searchMangaWithRatings(candidate.title, options.minRating, minReviewCount, options.targetYear);
+        
+        if (books.length > 0) {
+          const bestMatch = books[0];
+          return {
+            ...candidate,
+            reviewAverage: bestMatch.reviewAverage || undefined,
+            reviewCount: bestMatch.reviewCount || undefined,
+            qualityScore: bestMatch.reviewAverage ? bestMatch.reviewAverage * Math.log10((bestMatch.reviewCount || 1) + 1) : undefined,
+            isVerified: true
+          };
+        } else {
+          const reason = options.targetYear ? `may not be ${options.targetYear}+ release` : 'rating below threshold or not found';
+          console.log(`Filtered out ${candidate.title} - ${reason}`);
+          return null; // フィルタアウト
+        }
+      } catch (error) {
+        console.error(`Error verifying ${candidate.title}:`, error);
+        
+        // レート制限エラーの場合は未検証として保持、その他のエラーは除外
+        if (error instanceof Error && error.message.includes('API rate limit exceeded')) {
+          return {
+            ...candidate,
+            isVerified: false
+          };
+        }
+        return null; // その他のエラーは除外
       }
-      
-      // API制限を避けるための待機
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-    } catch (error) {
-      console.error(`Error verifying ${candidate.title}:`, error);
-      // エラーの場合は未検証として追加
-      filteredCandidates.push({
-        ...candidate,
-        isVerified: false
-      });
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    
+    // nullでない結果のみを追加
+    batchResults.forEach(result => {
+      if (result) {
+        filteredCandidates.push(result);
+      }
+    });
+    
+    // 次のバッチまで待機（最後のバッチでない場合）
+    if (i + BATCH_SIZE < candidates.length) {
+      console.log(`Processed batch ${Math.floor(i/BATCH_SIZE) + 1}, waiting ${DELAY_BETWEEN_BATCHES}ms...`);
+      await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
     }
   }
   
-  // 品質スコアでソート
+  // 検証済み候補が少ない場合は未検証候補も含める
+  if (filteredCandidates.filter(c => c.isVerified).length < 3) {
+    console.log('Insufficient verified candidates, including unverified ones');
+    
+    // 未検証の候補を元のリストから追加
+    candidates.forEach(candidate => {
+      const alreadyExists = filteredCandidates.some(fc => fc.title === candidate.title);
+      if (!alreadyExists) {
+        filteredCandidates.push({
+          ...candidate,
+          isVerified: false
+        });
+      }
+    });
+  }
+  
+  // 品質スコアでソート（検証済み優先）
   const sortedCandidates = filteredCandidates.sort((a, b) => {
     if (a.isVerified && !b.isVerified) return -1;
     if (!a.isVerified && b.isVerified) return 1;
     return (b.qualityScore || 0) - (a.qualityScore || 0);
   });
+  
+  console.log(`Final candidates: ${sortedCandidates.length} (${sortedCandidates.filter(c => c.isVerified).length} verified)`);
+  
+  // 候補が3件以下の場合は直接返す
+  if (sortedCandidates.length <= 3) {
+    return sortedCandidates;
+  }
   
   // 第二段階: AIに最適な3作品を選ばせる
   const finalRecommendations = await selectBestRecommendations(favoritesList, sortedCandidates, 3);
