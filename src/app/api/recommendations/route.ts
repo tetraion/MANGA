@@ -58,8 +58,6 @@ export async function GET(request: Request) {
     return NextResponse.json({
       recommendations,
       basedOn: favoritesWithRatings.map(f => f.name),
-      favoritesWithRatings: allFavoritesWithRatings, // 全お気に入り度情報（除外前）
-      excludedFavorites, // 除外されたお気に入り名のリスト
       type
     });
 

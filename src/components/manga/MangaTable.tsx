@@ -225,6 +225,10 @@ export default function MangaTable({
                       })()
                     : false
 
+                  // 漫画名を一度だけ生成（重複処理の最適化）
+                  const mangaName = manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
+                  const isExcluded = excludedForRecommendation.has(mangaName)
+
                   return (
                     <tr 
                       key={manga.id}
@@ -260,19 +264,14 @@ export default function MangaTable({
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                         <input
                           type="checkbox"
-                          checked={!excludedForRecommendation.has(
-                            manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
-                          )}
+                          checked={!isExcluded}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
                             e.stopPropagation()
-                            const mangaName = manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
                             onRecommendationToggle?.(mangaName)
                           }}
                           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                          title={excludedForRecommendation.has(
-                            manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
-                          ) ? 'AI推薦対象に含める' : 'AI推薦対象から除外する'}
+                          title={isExcluded ? 'AI推薦対象に含める' : 'AI推薦対象から除外する'}
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -13,15 +13,9 @@ interface MangaRecommendation {
   isVerified?: boolean;
 }
 
-interface FavoriteWithRating {
-  name: string;
-  rating: number;
-}
-
 interface RecommendationsResponse {
   recommendations: MangaRecommendation[];
   basedOn: string[];
-  favoritesWithRatings?: FavoriteWithRating[];
   type?: string;
 }
 
@@ -31,7 +25,6 @@ interface RecommendationsListProps {
 
 export default function RecommendationsList({ excludedForRecommendation = new Set() }: RecommendationsListProps) {
   const [recommendations, setRecommendations] = useState<MangaRecommendation[]>([]);
-  const [basedOn, setBasedOn] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [usageStatus, setUsageStatus] = useState({ daily: 0, monthly: 0 });
@@ -47,7 +40,7 @@ export default function RecommendationsList({ excludedForRecommendation = new Se
         setUsageStatus({ daily: data.daily, monthly: data.monthly });
       }
     } catch (error) {
-      console.error('Failed to fetch usage status:', error);
+      // エラーは無視（使用状況表示は必須ではない）
     }
   };
 
@@ -112,7 +105,7 @@ export default function RecommendationsList({ excludedForRecommendation = new Se
       if (type === 'recent') queryParams.set('type', 'recent');
       if (excludedArray.length > 0) queryParams.set('excluded', JSON.stringify(excludedArray));
       
-      const endpoint = `/api/recommendations${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const endpoint = queryParams.toString() ? `/api/recommendations?${queryParams.toString()}` : '/api/recommendations';
       const response = await fetch(endpoint);
       const data: RecommendationsResponse | { error: string } = await response.json();
 
@@ -122,7 +115,6 @@ export default function RecommendationsList({ excludedForRecommendation = new Se
 
       if ('recommendations' in data) {
         setRecommendations(data.recommendations);
-        setBasedOn(data.basedOn);
         // 使用状況を更新
         setUsageStatus({ daily: usageData.daily, monthly: usageData.monthly });
       }

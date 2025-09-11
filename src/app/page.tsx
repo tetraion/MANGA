@@ -12,6 +12,14 @@ interface FavoriteWithVolumes extends Favorite {
   volumes: Volume[]
 }
 
+// データ品質フィルタリング用の除外キーワード（定数化でパフォーマンス改善）
+const EXCLUDE_KEYWORDS = [
+  'キャラクター', 'ガイドブック', 'アートブック', '設定資料', 'ファンブック',
+  'オフィシャル', '公式', 'perfect', 'complete', 'final', 'special',
+  '特別', '限定', 'dvd', 'blu-ray', 'サウンドトラック', 'soundtrack',
+  'フィギュア', 'グッズ', 'カレンダー', '名鑑', '辞典', '解説'
+] as const
+
 export default function Home() {
   const [favorites, setFavorites] = useState<FavoriteWithVolumes[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,29 +54,17 @@ export default function Home() {
         
         // データ品質フィルタリング：関連書籍や古いデータを除外
         const filteredVolumes = volumes.filter(volume => {
-          // 除外キーワード
-          const excludeKeywords = [
-            'キャラクター', 'ガイドブック', 'アートブック', '設定資料', 'ファンブック',
-            'オフィシャル', '公式', 'perfect', 'complete', 'final', 'special',
-            '特別', '限定', 'dvd', 'blu-ray', 'サウンドトラック', 'soundtrack',
-            'フィギュア', 'グッズ', 'カレンダー', '名鑑', '辞典', '解説'
-          ]
-          
           const title = volume.title.toLowerCase()
           
-          // 除外キーワードチェック
-          for (const keyword of excludeKeywords) {
-            if (title.includes(keyword)) {
-              return false
-            }
+          // 除外キーワードチェック（定数配列を使用）
+          if (EXCLUDE_KEYWORDS.some(keyword => title.includes(keyword))) {
+            return false
           }
           
           // 異常に古い発売日を除外（2000年以前）
           if (volume.release_date) {
             const releaseYear = new Date(volume.release_date).getFullYear()
-            if (releaseYear < 2000) {
-              return false
-            }
+            if (releaseYear < 2000) return false
           }
           
           // 異常に高い巻数を除外（999巻以上は年号の可能性）
