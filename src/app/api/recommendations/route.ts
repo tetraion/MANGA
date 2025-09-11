@@ -7,6 +7,8 @@ export async function GET(request: Request) {
     // クエリパラメータを取得
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'general';
+    const excludedParam = searchParams.get('excluded');
+    const excludedFavorites: string[] = excludedParam ? JSON.parse(excludedParam) : [];
     
     const { data: favorites, error } = await supabase
       .from('favorites')
@@ -28,10 +30,23 @@ export async function GET(request: Request) {
     }
 
     // お気に入り度を考慮したリスト作成（未評価は3とする）
-    const favoritesWithRatings = favorites.map(fav => ({
+    const allFavoritesWithRatings = favorites.map(fav => ({
       name: fav.author_name ? `${fav.series_name}（${fav.author_name}）` : fav.series_name,
       rating: fav.user_rating || 3  // 未評価は星3と仮定
     }));
+
+    // 除外対象を取り除いたリストを作成
+    const favoritesWithRatings = allFavoritesWithRatings.filter(fav => 
+      !excludedFavorites.includes(fav.name)
+    );
+
+    // 除外後にお気に入りが残っているかチェック
+    if (favoritesWithRatings.length === 0) {
+      return NextResponse.json(
+        { error: '分析対象のお気に入り作品がありません。チェックボックスで作品を選択してください。' },
+        { status: 400 }
+      );
+    }
 
     // タイプに応じて設定を変更
     const config = type === 'recent' 
@@ -43,7 +58,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       recommendations,
       basedOn: favoritesWithRatings.map(f => f.name),
-      favoritesWithRatings, // お気に入り度情報も含める
+      favoritesWithRatings: allFavoritesWithRatings, // 全お気に入り度情報（除外前）
+      excludedFavorites, // 除外されたお気に入り名のリスト
       type
     });
 

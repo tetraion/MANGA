@@ -19,6 +19,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedManga, setSelectedManga] = useState<FavoriteWithVolumes | null>(null)
+  const [excludedForRecommendation, setExcludedForRecommendation] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchFavorites()
@@ -161,6 +162,18 @@ export default function Home() {
     }
   }
 
+  const handleRecommendationToggle = (mangaName: string) => {
+    setExcludedForRecommendation(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(mangaName)) {
+        newSet.delete(mangaName)
+      } else {
+        newSet.add(mangaName)
+      }
+      return newSet
+    })
+  }
+
   const handleUpdate = async () => {
     setUpdating(true)
     
@@ -217,11 +230,13 @@ export default function Home() {
           onAddClick={handleAddClick}
           onMangaClick={handleMangaClick}
           searchQuery={searchQuery}
+          excludedForRecommendation={excludedForRecommendation}
+          onRecommendationToggle={handleRecommendationToggle}
         />
 
         {/* AIおすすめセクション */}
         <div className="px-4 sm:px-6 lg:px-8 pb-8">
-          <RecommendationsList />
+          <RecommendationsList excludedForRecommendation={excludedForRecommendation} />
         </div>
       </main>
 

@@ -25,30 +25,18 @@ interface RecommendationsResponse {
   type?: string;
 }
 
-export default function RecommendationsList() {
+interface RecommendationsListProps {
+  excludedForRecommendation?: Set<string>
+}
+
+export default function RecommendationsList({ excludedForRecommendation = new Set() }: RecommendationsListProps) {
   const [recommendations, setRecommendations] = useState<MangaRecommendation[]>([]);
   const [basedOn, setBasedOn] = useState<string[]>([]);
-  const [favoritesWithRatings, setFavoritesWithRatings] = useState<FavoriteWithRating[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [usageStatus, setUsageStatus] = useState({ daily: 0, monthly: 0 });
   const [mounted, setMounted] = useState(false);
 
-  // 星評価を表示するヘルパー関数
-  const renderStars = (rating: number) => {
-    const fullStars = '★'.repeat(rating);
-    const emptyStars = '☆'.repeat(5 - rating);
-    return fullStars + emptyStars;
-  };
-
-  // 評価レベルごとの色を返すヘルパー関数
-  const getRatingColor = (rating: number) => {
-    if (rating >= 5) return 'text-red-600';
-    if (rating >= 4) return 'text-orange-500';
-    if (rating >= 3) return 'text-blue-500';
-    if (rating >= 2) return 'text-gray-500';
-    return 'text-gray-400';
-  };
 
   // 使用状況を取得
   const fetchUsageStatus = async () => {
@@ -119,7 +107,12 @@ export default function RecommendationsList() {
       }
       
       // 使用制限チェックをクリアした場合のみAPIを呼び出し
-      const endpoint = type === 'recent' ? '/api/recommendations?type=recent' : '/api/recommendations';
+      const excludedArray = Array.from(excludedForRecommendation);
+      const queryParams = new URLSearchParams();
+      if (type === 'recent') queryParams.set('type', 'recent');
+      if (excludedArray.length > 0) queryParams.set('excluded', JSON.stringify(excludedArray));
+      
+      const endpoint = `/api/recommendations${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
       const response = await fetch(endpoint);
       const data: RecommendationsResponse | { error: string } = await response.json();
 
@@ -130,7 +123,6 @@ export default function RecommendationsList() {
       if ('recommendations' in data) {
         setRecommendations(data.recommendations);
         setBasedOn(data.basedOn);
-        setFavoritesWithRatings(data.favoritesWithRatings || []);
         // 使用状況を更新
         setUsageStatus({ daily: usageData.daily, monthly: usageData.monthly });
       }
@@ -196,31 +188,6 @@ export default function RecommendationsList() {
         </div>
       )}
 
-      {favoritesWithRatings.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <h3 className="text-blue-800 text-sm font-semibold mb-3 flex items-center">
-            📊 分析対象のお気に入り作品
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-            {favoritesWithRatings.map((favorite, index) => (
-              <div 
-                key={index} 
-                className="flex items-center justify-between bg-white bg-opacity-60 rounded-md px-3 py-2 text-xs"
-              >
-                <span className="text-gray-700 truncate flex-1 mr-2">
-                  {favorite.name}
-                </span>
-                <span className={`font-mono text-sm ${getRatingColor(favorite.rating)}`}>
-                  {renderStars(favorite.rating)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-blue-600">
-            💡 星評価の高い作品ほど推薦に強く影響します
-          </div>
-        </div>
-      )}
 
       {recommendations.length > 0 ? (
         <div className="space-y-6">

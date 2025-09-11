@@ -14,6 +14,8 @@ interface MangaTableProps {
   onAddClick: () => void
   onMangaClick: (manga: FavoriteWithVolumes) => void
   searchQuery?: string
+  excludedForRecommendation?: Set<string>
+  onRecommendationToggle?: (mangaName: string) => void
 }
 
 type SortField = 'series_name' | 'author_name' | 'latest_date' | 'user_rating'
@@ -24,7 +26,9 @@ export default function MangaTable({
   onDelete, 
   onAddClick, 
   onMangaClick,
-  searchQuery = ''
+  searchQuery = '',
+  excludedForRecommendation = new Set(),
+  onRecommendationToggle
 }: MangaTableProps) {
   const [sortField, setSortField] = useState<SortField>('latest_date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -198,6 +202,9 @@ export default function MangaTable({
                       {getSortIcon('user_rating')}
                     </div>
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    AI推薦対象
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     操作
                   </th>
@@ -249,6 +256,24 @@ export default function MangaTable({
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                         <StarRating rating={manga.user_rating || 0} mangaId={manga.id} />
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                        <input
+                          type="checkbox"
+                          checked={!excludedForRecommendation.has(
+                            manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
+                          )}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            const mangaName = manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
+                            onRecommendationToggle?.(mangaName)
+                          }}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          title={excludedForRecommendation.has(
+                            manga.author_name ? `${manga.series_name}（${manga.author_name}）` : manga.series_name
+                          ) ? 'AI推薦対象に含める' : 'AI推薦対象から除外する'}
+                        />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
