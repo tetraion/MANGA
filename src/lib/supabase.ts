@@ -9,6 +9,7 @@ export interface Favorite {
   id: number
   series_name: string
   author_name: string | null
+  user_rating: number | null
   created_at: string
 }
 
@@ -20,5 +21,6 @@ export interface Volume {
   release_date: string | null
   price: number | null
   rakuten_url: string | null
+  image_url: string | null
   created_at: string
 }

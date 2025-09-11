@@ -5,7 +5,6 @@ export interface RakutenBookItem {
   salesDate: string
   itemPrice: number
   itemUrl: string
-  largeImageUrl: string
   isbn: string
   reviewCount?: number
   reviewAverage?: number
@@ -200,11 +199,6 @@ export async function getLatestVolumeInfo(seriesName: string): Promise<RakutenBo
     const filteredBooks = books.filter(book => {
       const title = book.title.toLowerCase()
       const searchTerm = seriesName.toLowerCase()
-      
-      // 完全一致または先頭一致を優先
-      if (title === searchTerm || title.startsWith(searchTerm + ' ')) {
-        return true
-      }
       
       // 作品名が含まれているかチェック
       return title.includes(searchTerm)

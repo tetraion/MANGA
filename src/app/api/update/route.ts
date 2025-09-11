@@ -29,8 +29,22 @@ export async function POST() {
         if (latestInfoList.length > 0) {
           const newVolumes = []
           
+          // 著者情報を更新（最初の結果から取得）
+          const firstResult = latestInfoList[0]
+          if (firstResult.author && !favorite.author_name) {
+            console.log(`Updating author for ${favorite.series_name}: ${firstResult.author}`)
+            await supabase
+              .from('favorites')
+              .update({ author_name: firstResult.author })
+              .eq('id', favorite.id)
+          }
+          
           // 最新3件をそれぞれ処理
           for (const latestInfo of latestInfoList) {
+            // 巻数を抽出（デバッグ用に常に実行）
+            const volumeNumber = extractVolumeNumber(latestInfo.title)
+            console.log(`[${favorite.series_name}] "${latestInfo.title}" → volume: ${volumeNumber}`)
+            
             // 既存の同じタイトルがあるかチェック
             const { data: existingVolumes } = await supabase
               .from('volumes')
@@ -38,10 +52,17 @@ export async function POST() {
               .eq('favorite_id', favorite.id)
               .eq('title', latestInfo.title)
 
-            if (!existingVolumes || existingVolumes.length === 0) {
-              // 巻数を抽出
-              const volumeNumber = extractVolumeNumber(latestInfo.title)
-
+            // 既存のボリュームがある場合、volume_numberがnullなら更新
+            if (existingVolumes && existingVolumes.length > 0) {
+              const existingVolume = existingVolumes[0]
+              if (existingVolume.volume_number === null && volumeNumber !== null) {
+                console.log(`Updating volume_number for existing volume: ${existingVolume.title} → ${volumeNumber}`)
+                await supabase
+                  .from('volumes')
+                  .update({ volume_number: volumeNumber })
+                  .eq('id', existingVolume.id)
+              }
+            } else if (!existingVolumes || existingVolumes.length === 0) {
               // 日付を正しい形式に変換
               const formattedDate = parseJapaneseDate(latestInfo.salesDate)
 
@@ -111,8 +132,25 @@ export async function POST() {
 }
 
 function extractVolumeNumber(title: string): number | null {
-  const match = title.match(/(\d+)巻?$/)
-  return match ? parseInt(match[1]) : null
+  // 巻数パターンを優先順位で試行
+  const volumePatterns = [
+    /(\d+)巻/,           // 「2巻」
+    /（(\d+)）/,         // 「（31）」  
+    /\((\d+)\)/,         // 「(31)」
+    /\s(\d+)\s*$/        // 「キングダム 77」
+  ]
+  
+  for (const pattern of volumePatterns) {
+    const match = title.match(pattern)
+    if (match) {
+      const number = parseInt(match[1])
+      if (number > 0 && number < 200) {
+        return number
+      }
+    }
+  }
+  
+  return null
 }
 
 function parseJapaneseDate(dateString: string): string | null {
