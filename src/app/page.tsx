@@ -221,13 +221,7 @@ export default function Home() {
 
         {/* AIおすすめセクション */}
         <div className="px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <span className="text-3xl mr-3">🤖</span>
-              AIおすすめ漫画
-            </h2>
-            <RecommendationsList />
-          </div>
+          <RecommendationsList />
         </div>
       </main>
 

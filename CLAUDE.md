@@ -164,6 +164,9 @@ GROQ_API_KEY=your_groq_api_key_here
 - エンドポイント変更 → フロント同期
 - スキーマ変更 → マイグレーション必須
 
+### 技術的負債
+- `/api/recent-recommendations/route.ts` は使用されていない（統合済み）→ 削除可能
+
 ## Key Components & Implementation Details
 
 ### React Components
@@ -171,6 +174,9 @@ GROQ_API_KEY=your_groq_api_key_here
 - `AddForm.tsx`: Form for adding new favorite manga series
 - `FavoritesList.tsx`: Display component for user's favorite manga with volume information
 - `RecommendationsList.tsx`: AI-powered manga recommendation interface with usage tracking
+- `AddMangaModal.tsx` & `MangaDetailModal.tsx`: Modal components for adding and viewing manga details
+- `StarRating.tsx`: Interactive star rating component (1-5 stars)
+- `MangaTable.tsx`: Table display component for manga listings
 
 ### API Routes
 - `/api/favorites`: CRUD operations for favorite manga series

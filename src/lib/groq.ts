@@ -17,14 +17,49 @@ interface MangaRecommendation {
   isVerified?: boolean;
 }
 
-export async function getAIRecommendations(favoritesList: string[], targetYear?: string, count: number = 3): Promise<MangaRecommendation[]> {
+interface FavoriteWithRating {
+  name: string;
+  rating: number;
+}
+
+export async function getAIRecommendations(favoritesWithRatings: FavoriteWithRating[], targetYear?: string, count: number = 3): Promise<MangaRecommendation[]> {
   const apiKey = process.env.GROQ_API_KEY;
   
   if (!apiKey) {
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const favoritesText = favoritesList.join('、');
+  // お気に入り度に応じて重み付けしたテキストを作成
+  const createFavoritesText = (favorites: FavoriteWithRating[]): string => {
+    const ratingGroups = {
+      5: favorites.filter(f => f.rating === 5),
+      4: favorites.filter(f => f.rating === 4),
+      3: favorites.filter(f => f.rating === 3),
+      2: favorites.filter(f => f.rating === 2),
+      1: favorites.filter(f => f.rating === 1)
+    };
+
+    let text = '';
+    if (ratingGroups[5].length > 0) {
+      text += `\n【非常に気に入っている作品★★★★★】\n${ratingGroups[5].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[4].length > 0) {
+      text += `\n【気に入っている作品★★★★☆】\n${ratingGroups[4].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[3].length > 0) {
+      text += `\n【普通の作品★★★☆☆】\n${ratingGroups[3].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[2].length > 0) {
+      text += `\n【あまり好きではない作品★★☆☆☆】\n${ratingGroups[2].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[1].length > 0) {
+      text += `\n【嫌いな作品★☆☆☆☆】\n${ratingGroups[1].map(f => f.name).join('、')}`;
+    }
+    
+    return text;
+  };
+
+  const favoritesText = createFavoritesText(favoritesWithRatings);
   
   // 対象範囲を動的に設定
   const targetDescription = targetYear 
@@ -32,9 +67,21 @@ export async function getAIRecommendations(favoritesList: string[], targetYear?:
     : '漫画';
   
   const prompt = `
-あなたは漫画に詳しいAIアシスタントです。以下のお気に入り漫画リストから、ユーザーの好みを分析して${targetDescription}を${count}つおすすめしてください。
+あなたは漫画に詳しいAIアシスタントです。以下のユーザーのお気に入り漫画リスト（星評価付き）から好みを分析し、${targetDescription}を${count}つおすすめしてください。
 
-お気に入り漫画：${favoritesText}
+お気に入り漫画（星評価付き）：${favoritesText}
+
+【重要な分析ポイント】
+- ★★★★★（星5）の作品は「非常に気に入っている」ため、最重要な好み指標として扱う
+- ★★★★☆（星4）の作品は「気に入っている」ため、重要な好み指標として扱う  
+- ★★★☆☆（星3）の作品は「普通」のため、参考程度に扱う
+- ★★☆☆☆（星2）の作品は「あまり好きではない」ため、類似作品は避ける
+- ★☆☆☆☆（星1）の作品は「嫌い」なため、類似作品は強く避ける
+
+推薦手順：
+1. 星5と星4の作品から主要な好みのパターン（ジャンル、作風、テーマ等）を特定
+2. 星2と星1の作品の特徴は避けるべき要素として認識
+3. これらの分析に基づいて最適な作品を選定
 
 以下の手順で回答してください：
 1. まず、おすすめしたい漫画のタイトルとおすすめな理由を決めてください。
@@ -50,7 +97,7 @@ export async function getAIRecommendations(favoritesList: string[], targetYear?:
     "title": "おすすめ漫画のタイトル",
     "author": "著者",
     "genre": "ジャンル",
-    "reason": "おすすめ理由（なぜこのユーザーに合うか）"
+    "reason": "おすすめ理由（特に星評価の高い作品との関連性を説明）"
   }
 ]
 
@@ -131,12 +178,12 @@ interface RecommendationOptions {
 }
 
 export async function getVerifiedAIRecommendations(
-  favoritesList: string[], 
+  favoritesWithRatings: FavoriteWithRating[], 
   options: RecommendationOptions = { minRating: 3.0 }
 ): Promise<MangaRecommendation[]> {
   
   // 第一段階: AI推薦を多めに取得（6件）
-  const candidates = await getAIRecommendations(favoritesList, options.targetYear, 6);
+  const candidates = await getAIRecommendations(favoritesWithRatings, options.targetYear, 6);
   
   // フィルタリング: 楽天APIで評価チェック
   const { searchMangaWithRatings } = await import('./rakuten');
@@ -227,13 +274,13 @@ export async function getVerifiedAIRecommendations(
   }
   
   // 第二段階: AIに最適な3作品を選ばせる
-  const finalRecommendations = await selectBestRecommendations(favoritesList, sortedCandidates, 3);
+  const finalRecommendations = await selectBestRecommendations(favoritesWithRatings, sortedCandidates, 3);
   
   return finalRecommendations;
 }
 
 export async function selectBestRecommendations(
-  favoritesList: string[],
+  favoritesWithRatings: FavoriteWithRating[],
   filteredCandidates: MangaRecommendation[],
   finalCount: number = 3
 ): Promise<MangaRecommendation[]> {
@@ -251,23 +298,59 @@ export async function selectBestRecommendations(
     return filteredCandidates;
   }
 
-  const favoritesText = favoritesList.join('、');
+  // お気に入り度を考慮したテキスト作成（同じロジックを再利用）
+  const createFavoritesText = (favorites: FavoriteWithRating[]): string => {
+    const ratingGroups = {
+      5: favorites.filter(f => f.rating === 5),
+      4: favorites.filter(f => f.rating === 4),
+      3: favorites.filter(f => f.rating === 3),
+      2: favorites.filter(f => f.rating === 2),
+      1: favorites.filter(f => f.rating === 1)
+    };
+
+    let text = '';
+    if (ratingGroups[5].length > 0) {
+      text += `\n【非常に気に入っている作品★★★★★】\n${ratingGroups[5].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[4].length > 0) {
+      text += `\n【気に入っている作品★★★★☆】\n${ratingGroups[4].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[3].length > 0) {
+      text += `\n【普通の作品★★★☆☆】\n${ratingGroups[3].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[2].length > 0) {
+      text += `\n【あまり好きではない作品★★☆☆☆】\n${ratingGroups[2].map(f => f.name).join('、')}`;
+    }
+    if (ratingGroups[1].length > 0) {
+      text += `\n【嫌いな作品★☆☆☆☆】\n${ratingGroups[1].map(f => f.name).join('、')}`;
+    }
+    
+    return text;
+  };
+
+  const favoritesText = createFavoritesText(favoritesWithRatings);
   const candidatesText = filteredCandidates.map(candidate => 
     `- ${candidate.title}（${candidate.author}）: ${candidate.reason}`
   ).join('\n');
 
   const prompt = `
-あなたは漫画に詳しいAIアシスタントです。以下のユーザーのお気に入り漫画を分析し、候補作品の中から最もユーザーに適した${finalCount}つを選んでください。
+あなたは漫画に詳しいAIアシスタントです。以下のユーザーのお気に入り漫画（星評価付き）を分析し、候補作品の中から最もユーザーに適した${finalCount}つを選んでください。
 
-お気に入り漫画：${favoritesText}
+お気に入り漫画（星評価付き）：${favoritesText}
 
 候補作品：
 ${candidatesText}
 
-以下の基準で選択してください：
-1. ユーザーの好みとの関連性
-2. ジャンルの多様性
-3. おすすめ理由の妥当性
+【重要な選択基準】
+1. ★★★★★（星5）と★★★★☆（星4）の作品との関連性を最優先
+2. ★★☆☆☆（星2）と★☆☆☆☆（星1）の作品の特徴は避ける
+3. ジャンルの多様性とバランス
+4. おすすめ理由の妥当性と説得力
+
+選択手順：
+1. 星5・星4の作品から好みのパターンを分析
+2. 候補作品の中から最も適合する作品を特定
+3. 低評価作品の特徴と重複しないことを確認
 
 必ず以下の厳密なJSON配列形式のみで回答してください（余計なテキストやマークダウンは一切含めない）：
 [
@@ -275,7 +358,7 @@ ${candidatesText}
     "title": "選択した漫画のタイトル",
     "author": "著者",
     "genre": "ジャンル", 
-    "reason": "なぜこの作品を選んだかの理由"
+    "reason": "なぜこの作品を選んだかの理由（特に高評価作品との関連性を説明）"
   }
 ]
 

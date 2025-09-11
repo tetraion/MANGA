@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     
     const { data: favorites, error } = await supabase
       .from('favorites')
-      .select('series_name, author_name');
+      .select('series_name, author_name, user_rating');
 
     if (error) {
       console.error('Database error:', error);
@@ -27,20 +27,23 @@ export async function GET(request: Request) {
       );
     }
 
-    const favoritesList = favorites.map(fav => 
-      fav.author_name ? `${fav.series_name}（${fav.author_name}）` : fav.series_name
-    );
+    // お気に入り度を考慮したリスト作成（未評価は3とする）
+    const favoritesWithRatings = favorites.map(fav => ({
+      name: fav.author_name ? `${fav.series_name}（${fav.author_name}）` : fav.series_name,
+      rating: fav.user_rating || 3  // 未評価は星3と仮定
+    }));
 
     // タイプに応じて設定を変更
     const config = type === 'recent' 
       ? { minRating: 2.5, targetYear: '2025' }
       : { minRating: 3.0 };
 
-    const recommendations = await getVerifiedAIRecommendations(favoritesList, config);
+    const recommendations = await getVerifiedAIRecommendations(favoritesWithRatings, config);
 
     return NextResponse.json({
       recommendations,
-      basedOn: favoritesList,
+      basedOn: favoritesWithRatings.map(f => f.name),
+      favoritesWithRatings, // お気に入り度情報も含める
       type
     });
 
