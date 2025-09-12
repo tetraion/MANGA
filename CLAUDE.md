@@ -78,7 +78,7 @@ CREATE TABLE favorites (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 新刊情報テーブル（image_url列も含む）
+-- 新刊情報テーブル
 CREATE TABLE volumes (
   id SERIAL PRIMARY KEY,
   favorite_id INTEGER REFERENCES favorites(id) ON DELETE CASCADE,
