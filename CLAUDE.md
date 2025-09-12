@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、Claude Code (claude.ai/code) がこのリポジトリでコードを扱う際のガイダンスを提供します。
 
 漫画新作通知アプリケーション - Next.js、Supabase、楽天ブックスAPIを使用した漫画新刊情報・AI推薦システム
 
-## Development Commands
+## 開発コマンド
 
 ```bash
 # 開発サーバー起動
@@ -18,11 +18,14 @@ npm run start
 
 # ESLintチェック
 npm run lint
+
+# TypeScript型チェック
+npx tsc --noEmit
 ```
 
-## Architecture
+## アーキテクチャ
 
-### Tech Stack
+### 技術スタック
 - Next.js 15 (App Router) + TypeScript
 - Tailwind CSS
 - Supabase (PostgreSQL)
@@ -30,7 +33,7 @@ npm run lint
 - Groq API (gemma2-9b-it)
 - Vercel
 
-### File Structure
+### ファイル構造
 ```
 src/
 ├── app/
@@ -64,7 +67,7 @@ src/
     └── groq.ts                   # Groq AI API呼び出し（二段階推薦システム）
 ```
 
-### Database Schema
+### データベーススキーマ
 ```sql
 -- お気に入り作品テーブル
 CREATE TABLE favorites (
@@ -75,7 +78,7 @@ CREATE TABLE favorites (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 新刊情報テーブル
+-- 新刊情報テーブル（image_url列も含む）
 CREATE TABLE volumes (
   id SERIAL PRIMARY KEY,
   favorite_id INTEGER REFERENCES favorites(id) ON DELETE CASCADE,
@@ -84,6 +87,7 @@ CREATE TABLE volumes (
   release_date DATE,
   price INTEGER,
   rakuten_url TEXT,
+  image_url TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -99,7 +103,7 @@ CREATE TABLE api_usage (
 );
 ```
 
-## Environment Variables
+## 環境変数
 
 ```bash
 # Supabase設定
@@ -113,7 +117,7 @@ RAKUTEN_APPLICATION_ID=your_rakuten_application_id_here
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-## Setup Instructions
+## セットアップ手順
 
 1. Supabaseプロジェクト作成とテーブル作成
 2. 楽天デベロッパー登録とAPI Key取得
@@ -135,106 +139,137 @@ GROQ_API_KEY=your_groq_api_key_here
 - お気に入り漫画管理 (CRUD)
 - 星評価機能 (1-5星、お気に入り度)
 - 楽天API新刊情報取得
-- 巻数自動抽出・更新
 - 使用量制限管理
-
-## Claude 作業ルール
-
-### 必須プロセス
-1. 変更内容の事前提示（対象ファイル・箇所・理由）
-2. ユーザー承認待ち（明示的な許可まで実行しない）
-3. 段階的実行（大規模変更は分割）
-
-### 禁止
-- 無断でのコード変更
-- 一度に大量ファイル変更
 
 ## 技術仕様
 
 ### 現在の構成
-- 単一エンドポイント + クエリパラメータ方式
-- 二段階AI推薦システム（6候補→フィルタ→3選定）
+- 単一エンドポイント + クエリパラメータ方式 (`/api/recommendations[?type=recent]`)
+- 二段階AI推薦システム（6候補→楽天API評価検証→AI最終選定3件）
 - 評価基準: 一般(3.0+,5件+), 新作(2.5+,緩和)
-- 使用制限: IPベース, 日次/月間管理
-- エラー対応: 部分成功表示, 429制限対応
+- 使用制限: IPベース, 日次/月間管理 (日次100回, 月次3000回)
+- エラー対応: 部分成功表示, 429制限対応, 指数バックオフ
+
+### AI推薦フロー詳細
+1. **Stage 1 (getAIRecommendations)**: Groq APIで星評価を重み付けして6件候補生成
+2. **Stage 2 (楽天API検証)**: 候補を並行処理(2件ずつ)で評価・レビュー数チェック
+3. **Stage 3 (selectBestRecommendations)**: 検証済み候補からAIが最適3件を選定
+4. **Fallback**: 検証済み候補が不足時は未検証候補も含める
 
 ### 変更時注意
-- 候補数変更 → API制限影響
-- 評価基準変更 → モード差異維持
-- エンドポイント変更 → フロント同期
-- スキーマ変更 → マイグレーション必須
+- 候補数変更 → API制限・処理時間に影響
+- 評価基準変更 → 一般/新作モード差異の維持必要
+- エンドポイント変更 → フロントエンド同期必須
+- スキーマ変更 → Supabaseマイグレーション必須
+- レート制限調整 → `lib/rakuten.ts` のバッチサイズ・待機時間見直し
 
-### 技術的負債
-- `/api/recent-recommendations/route.ts` は使用されていない（統合済み）→ 削除可能
+## 主要コンポーネント & 実装詳細
 
-## Key Components & Implementation Details
+### Reactコンポーネント
+- `page.tsx`: お気に入り管理とおすすめ表示を含むメインアプリケーションレイアウト
+- `AddForm.tsx`: 新しいお気に入り漫画シリーズを追加するためのフォーム
+- `FavoritesList.tsx`: ユーザーのお気に入り漫画と巻情報を表示するコンポーネント
+- `RecommendationsList.tsx`: 使用量追跡機能付きAI推薦漫画インターフェース
+- `AddMangaModal.tsx` & `MangaDetailModal.tsx`: 漫画の追加と詳細表示用モーダルコンポーネント
+- `StarRating.tsx`: インタラクティブな星評価コンポーネント（1-5星）
+- `MangaTable.tsx`: 漫画リスト表示用テーブルコンポーネント
 
-### React Components
-- `page.tsx`: Main application layout with favorites management and recommendations display
-- `AddForm.tsx`: Form for adding new favorite manga series
-- `FavoritesList.tsx`: Display component for user's favorite manga with volume information
-- `RecommendationsList.tsx`: AI-powered manga recommendation interface with usage tracking
-- `AddMangaModal.tsx` & `MangaDetailModal.tsx`: Modal components for adding and viewing manga details
-- `StarRating.tsx`: Interactive star rating component (1-5 stars)
-- `MangaTable.tsx`: Table display component for manga listings
+### APIルート
+- `/api/favorites`: お気に入り漫画シリーズのCRUD操作
+- `/api/favorites/[id]`: 個別のお気に入り削除
+- `/api/favorites/rating`: 星評価の更新（1-5星または0でクリア）
+- `/api/recommendations`: 統合AI推薦エンドポイント（`?type=recent`パラメータ対応）
+- `/api/usage`: API使用量追跡とレート制限（IPベース）
+- `/api/update`: 楽天APIデータ同期（巻数抽出機能付き）
 
-### API Routes
-- `/api/favorites`: CRUD operations for favorite manga series
-- `/api/favorites/[id]`: Individual favorite deletion
-- `/api/favorites/rating`: Star rating updates (1-5 stars or 0 to clear)
-- `/api/recommendations`: Unified AI recommendation endpoint (supports `?type=recent` parameter)
-- `/api/usage`: API usage tracking and rate limiting (IP-based)
-- `/api/update`: Rakuten API data synchronization with volume number extraction
+### ライブラリ & 外部API
+- `lib/supabase.ts`: データベースクライアント設定とTypeScriptインターフェース
+- `lib/rakuten.ts`: レート制限とエラーハンドリング付き楽天ブックスAPI統合
+- `lib/groq.ts`: 二段階推薦システム付きGroq AI API統合
 
-### Libraries & External APIs
-- `lib/supabase.ts`: Database client configuration and TypeScript interfaces
-- `lib/rakuten.ts`: Rakuten Books API integration with rate limiting and error handling
-- `lib/groq.ts`: Groq AI API integration with two-stage recommendation system
+## 重要な実装パターン
 
-## Important Implementation Patterns
+### AI推薦フロー
+1. **第1段階**: Groq AIを使用し6件の候補推薦を生成
+2. **第2段階**: 楽天APIで候補を検証（評価/レビューフィルタリング）
+3. **第3段階**: AIが検証済み候補から最適な3件を選定
+4. **フォールバック**: 検証済み結果が不足の場合は未検証候補も含める
 
-### AI Recommendation Flow
-1. **Stage 1**: Generate 6 candidate recommendations using Groq AI
-2. **Stage 2**: Validate candidates against Rakuten API (rating/review filtering)
-3. **Stage 3**: AI selects best 3 recommendations from validated candidates
-4. **Fallback**: Include unverified candidates if not enough verified results
+### レート制限 & エラーハンドリング
+- `api_usage`テーブルでIPベースの使用量追跡
+- 日次制限: 推薦100回、新作20回
+- 月次制限: 推薦3000回、新作600回
+- 楽天APIレート制限に対する指数バックオフ
+- 部分的障害に対するグレースフルデグラデーション
 
-### Rate Limiting & Error Handling
-- IP-based usage tracking in `api_usage` table
-- Daily limits: 100 recommendations, 20 recent-manga
-- Monthly limits: 3000 recommendations, 600 recent-manga
-- Exponential backoff for Rakuten API rate limits
-- Graceful degradation for partial failures
+### データベース関係
+- `favorites` → `volumes` （`favorite_id`経由1対多）
+- `favorites.user_rating`: 漫画シリーズの1-5星ユーザー評価
+- `api_usage`はサービスタイプと日付別のIP単位使用量を追跡
+- カスケード削除: お気に入り削除時に関連巻を自動削除
+- 巻数抽出: 更新時に正規表現パターンでタイトルから数値を抽出
 
-### Database Relationships
-- `favorites` → `volumes` (one-to-many via `favorite_id`)
-- `favorites.user_rating`: 1-5 star user evaluation of manga series
-- `api_usage` tracks per-IP usage by service type and date
-- Cascade deletion: removing favorites automatically removes associated volumes
-- Volume number extraction: regex patterns extract numbers from titles during updates
+### クライアントサイド状態管理
+- コンポーネント間の手動状態同期
+- 一負した日付計算を使用したHydrationエラー防止
+- 即座UIフィードバックとバックグラウンドAPI更新付き星評価
+- リアルタイム更新付き使用状況表示
 
-### Client-Side State Management
-- Manual state synchronization between components
-- Hydration error prevention using consistent date calculations
-- Star rating with immediate UI feedback and background API updates
-- Usage status display with real-time updates
+## 開発ガイドライン
 
-## Development Guidelines
+### テスト戦略
+- コード品質チェックに`npm run lint`を使用
+- 特定のテストフレームワークは未設定 - テストが必要な場合はユーザーに確認
+- 開発サーバー(`npm run dev`)での手動テスト
 
-### Testing Strategy
-- Use `npm run lint` to check code quality
-- No specific test framework configured - check with user if tests needed
-- Manual testing via development server (`npm run dev`)
+### コード規約
+- TypeScriptストリクトモード有効
+- UIテキストとコメントに日本語使用
+- レスポンシブデザイン用Tailwind CSSスタイリング
+- ユーザー向けエラーメッセージは日本語
+- デバッグ用コンソールログ（技術詳細は英語）
 
-### Code Conventions
-- TypeScript strict mode enabled
-- Japanese language used for UI text and comments
-- Tailwind CSS for styling with responsive design
-- Error messages in Japanese for user-facing errors
-- Console logging for debugging (English for technical details)
+### API設計パターン
+- 適切なHTTPメソッドを使用したRESTfulエンドポイント
+- 一負したエラーレスポンス形式: `{ error: string }`
+- エンドポイントバリアント用クエリパラメータ(`?type=recent`)
+- レート制限用IPベースユーザー識別
 
-### API Design Patterns
-- RESTful endpoints with appropriate HTTP methods
-- Consistent error response format: `{ error: string }`
-- Query parameters for endpoint variants (`?type=recent`)
-- IP-based user identification for rate limiting
+## 重要な実装ノート
+
+### データ品質フィルタリング
+`page.tsx:16-21`で定義された`EXCLUDE_KEYWORDS`定数は、ガイドブック、アートブック、その他の非漫画コンテンツを巻データからフィルタリングする。これによりUIが関連資料で散らからないようにする。
+
+### 巻数抽出
+`/api/update/route.ts`は正規表現パターンを使用してタイトルから巻数を抽出する。現在のパターンは「第1巻」、「1巻」、「Vol.1」などの形式に対応。
+
+### 星評価システム
+- favoritesテーブルの`user_rating`: 1-5星または未評価のNULL
+- 未評価のお気に入りはAI推薦でデフォルトで3とする
+- 星評価はAI推薦プロンプトに大きく影響（5★ = 最高優先度）
+
+### Hydrationエラー防止  
+`RecommendationsList.tsx:52-81`は、`mounted`状態がtrueになるまでプレースホルダーコンテンツを表示してSSR hydrationの不一致を防止する。
+
+### レート制限実装
+- `api/usage/route.ts`は`api_usage`テーブルでIPアドレス別の使用量を追跡
+- 高コストなAI操作前に使用量をチェック/増加
+- サービスタイプ別に異なる制限（推薦 vs 新作）
+
+### API統合パターン
+- **楽天API**: レート制限用指数バックオフ、バッチ処理（2同時リクエスト）
+- **Groq AI API**: フォールバック解析付きJSONレスポンス抽出
+- **Supabase**: `lib/supabase.ts`で定義されたTypeScriptインターフェース
+
+## デバッグ & メンテナンス
+
+### よくある問題
+1. **AI推薦の失敗**: GROQ_API_KEYとリクエスト形式を確認
+2. **レート制限エラー**: `api_usage`テーブルデータを確認し必要に応じてリセット
+3. **巻データ品質**: `EXCLUDE_KEYWORDS`と正規表現パターンを見直し
+4. **Hydrationエラー**: クライアントサイド状態がSSRと一致することを確認
+
+### パフォーマンスに関する考慮点
+- AI推薦はAPI呼び出しを減らすために2段階フィルタリングを使用
+- 巻データは`page.tsx`で表示前に事前フィルタリングとソート
+- 使用量追跡は正当な使用を許可しながら乱用を防止

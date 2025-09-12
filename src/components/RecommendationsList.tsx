@@ -11,6 +11,7 @@ interface MangaRecommendation {
   reviewCount?: number;
   qualityScore?: number;
   isVerified?: boolean;
+  imageUrl?: string;
 }
 
 interface RecommendationsResponse {
@@ -188,34 +189,57 @@ export default function RecommendationsList({ excludedForRecommendation = new Se
               key={index}
               className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:border-blue-300"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">📚</span>
-                    <h3 className="font-bold text-xl text-gray-800">{rec.title}</h3>
-                    {rec.isVerified && (
-                      <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">
-                        ✓ 評価確認済み
-                      </span>
-                    )}
+              <div className="flex gap-4 mb-4">
+                {/* 画像部分 */}
+                <div className="flex-shrink-0">
+                  {rec.imageUrl ? (
+                    <img 
+                      src={rec.imageUrl} 
+                      alt={rec.title}
+                      className="w-24 h-32 object-cover rounded-lg shadow-md border border-gray-200"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-24 h-32 bg-gray-100 rounded-lg shadow-md border border-gray-200 flex items-center justify-center ${rec.imageUrl ? 'hidden' : ''}`}>
+                    <span className="text-gray-400 text-3xl">📚</span>
                   </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-gray-500 text-sm">👤</span>
-                    <p className="text-gray-600 font-medium">{rec.author}</p>
-                  </div>
-                  {/* 評価情報表示 */}
-                  {rec.isVerified && rec.reviewAverage && typeof rec.reviewAverage === 'number' && (
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-gradient-to-r from-yellow-100 to-orange-100 px-3 py-1 rounded-lg text-sm">
-                        <span className="text-yellow-600 font-semibold">⭐ {rec.reviewAverage.toFixed(1)}</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                <div className="ml-4 flex-shrink-0">
-                  <span className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 px-3 py-2 rounded-lg text-sm font-medium border border-purple-200">
-                    🏷️ {rec.genre}
-                  </span>
+                
+                {/* コンテンツ部分 */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-bold text-xl text-gray-800">{rec.title}</h3>
+                        {rec.isVerified && (
+                          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">
+                            ✓ 評価確認済み
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-gray-500 text-sm">👤</span>
+                        <p className="text-gray-600 font-medium">{rec.author}</p>
+                      </div>
+                      {/* 評価情報表示 */}
+                      {rec.isVerified && rec.reviewAverage && typeof rec.reviewAverage === 'number' && (
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="bg-gradient-to-r from-yellow-100 to-orange-100 px-3 py-1 rounded-lg text-sm">
+                            <span className="text-yellow-600 font-semibold">⭐ {rec.reviewAverage.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="ml-4 flex-shrink-0">
+                      <span className="bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 px-3 py-2 rounded-lg text-sm font-medium border border-purple-200">
+                        🏷️ {rec.genre}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-400">

@@ -15,6 +15,7 @@ interface MangaRecommendation {
   reviewCount?: number;
   qualityScore?: number;
   isVerified?: boolean;
+  imageUrl?: string;
 }
 
 interface FavoriteWithRating {
@@ -211,6 +212,7 @@ export async function getVerifiedAIRecommendations(
             reviewAverage: bestMatch.reviewAverage || undefined,
             reviewCount: bestMatch.reviewCount || undefined,
             qualityScore: bestMatch.reviewAverage ? bestMatch.reviewAverage * Math.log10((bestMatch.reviewCount || 1) + 1) : undefined,
+            imageUrl: bestMatch.largeImageUrl || bestMatch.mediumImageUrl || bestMatch.smallImageUrl || undefined,
             isVerified: true
           };
         } else {

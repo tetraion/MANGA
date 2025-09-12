@@ -8,6 +8,9 @@ export interface RakutenBookItem {
   isbn: string
   reviewCount?: number
   reviewAverage?: number
+  largeImageUrl?: string
+  mediumImageUrl?: string
+  smallImageUrl?: string
 }
 
 export interface RakutenApiResponse {
