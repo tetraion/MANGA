@@ -170,6 +170,24 @@ export default function Home() {
     })
   }
 
+  const handleScrollToRecommendations = () => {
+    const element = document.getElementById('ai-recommendations')
+    if (element) {
+      element.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      })
+      
+      // スクロール後に目立たせるアニメーション
+      setTimeout(() => {
+        element.classList.add('animate-pulse')
+        setTimeout(() => {
+          element.classList.remove('animate-pulse')
+        }, 2000)
+      }, 500)
+    }
+  }
+
   const handleUpdate = async () => {
     setUpdating(true)
     
@@ -186,10 +204,10 @@ export default function Home() {
       }
       
       await fetchFavorites()
-      alert('更新が完了しました')
+      alert('最新情報の取得が完了しました')
     } catch (error) {
       console.error('Error updating favorites:', error)
-      alert('更新に失敗しました')
+      alert('最新情報の取得に失敗しました')
     } finally {
       setUpdating(false)
     }
@@ -212,26 +230,82 @@ export default function Home() {
       {/* ヘッダー */}
       <Header 
         onSearch={handleSearch}
-        onAddClick={handleAddClick}
-        isUpdating={updating}
-        onUpdate={handleUpdate}
+        onScrollToRecommendations={handleScrollToRecommendations}
       />
 
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto">
-        {/* 漫画テーブル */}
-        <MangaTable
-          favorites={favorites}
-          onDelete={handleDeleteFavorite}
-          onAddClick={handleAddClick}
-          onMangaClick={handleMangaClick}
-          searchQuery={searchQuery}
-          excludedForRecommendation={excludedForRecommendation}
-          onRecommendationToggle={handleRecommendationToggle}
-        />
+        {/* お気に入り漫画一覧セクション */}
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="mb-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <span className="text-3xl">📚</span>
+                  お気に入り漫画一覧
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  登録した漫画の最新巻情報とAI推薦機能をお楽しみください
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                {/* 最新情報取得ボタン */}
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white transition-colors ${
+                    updating 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                  }`}
+                >
+                  {updating ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      取得中...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="hidden sm:inline">最新情報取得</span>
+                      <span className="sm:hidden">取得</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 漫画を追加ボタン */}
+                <button
+                  onClick={handleAddClick}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                >
+                  <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="hidden sm:inline">漫画を追加</span>
+                  <span className="sm:hidden">追加</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* 漫画テーブル */}
+          <MangaTable
+            favorites={favorites}
+            onDelete={handleDeleteFavorite}
+            onMangaClick={handleMangaClick}
+            searchQuery={searchQuery}
+            excludedForRecommendation={excludedForRecommendation}
+            onRecommendationToggle={handleRecommendationToggle}
+          />
+        </div>
 
         {/* AIおすすめセクション */}
-        <div className="px-4 sm:px-6 lg:px-8 pb-8">
+        <div id="ai-recommendations" className="px-4 sm:px-6 lg:px-8 pb-8">
           <RecommendationsList excludedForRecommendation={excludedForRecommendation} />
         </div>
       </main>

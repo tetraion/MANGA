@@ -4,12 +4,10 @@ import { useState } from 'react'
 
 interface HeaderProps {
   onSearch: (query: string) => void
-  onAddClick: () => void
-  isUpdating: boolean
-  onUpdate: () => void
+  onScrollToRecommendations: () => void
 }
 
-export default function Header({ onSearch, onAddClick, isUpdating, onUpdate }: HeaderProps) {
+export default function Header({ onSearch, onScrollToRecommendations }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,45 +48,17 @@ export default function Header({ onSearch, onAddClick, isUpdating, onUpdate }: H
           </div>
 
           {/* アクションボタン */}
-          <div className="flex items-center space-x-2">
-            {/* 情報更新ボタン */}
+          <div className="flex items-center">
+            {/* AIおすすめボタン */}
             <button
-              onClick={onUpdate}
-              disabled={isUpdating}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white transition-colors ${
-                isUpdating 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
-            >
-              {isUpdating ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  更新中
-                </>
-              ) : (
-                <>
-                  <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  更新
-                </>
-              )}
-            </button>
-
-            {/* 追加ボタン */}
-            <button
-              onClick={onAddClick}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              onClick={onScrollToRecommendations}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors shadow-sm"
             >
               <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              <span className="hidden sm:inline">追加</span>
-              <span className="sm:hidden">+</span>
+              <span className="hidden sm:inline">🤖 AIおすすめ</span>
+              <span className="sm:hidden">🤖</span>
             </button>
           </div>
         </div>

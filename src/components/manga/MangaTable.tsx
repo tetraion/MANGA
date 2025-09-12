@@ -11,7 +11,6 @@ interface FavoriteWithVolumes extends Favorite {
 interface MangaTableProps {
   favorites: FavoriteWithVolumes[]
   onDelete: (id: number) => void
-  onAddClick: () => void
   onMangaClick: (manga: FavoriteWithVolumes) => void
   searchQuery?: string
   excludedForRecommendation?: Set<string>
@@ -24,7 +23,6 @@ type SortDirection = 'asc' | 'desc'
 export default function MangaTable({ 
   favorites, 
   onDelete, 
-  onAddClick, 
   onMangaClick,
   searchQuery = '',
   excludedForRecommendation = new Set(),
@@ -128,33 +126,14 @@ export default function MangaTable({
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6">
+    <div>
       {/* 検索結果・統計 */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          {searchQuery && (
-            <div className="text-sm text-gray-600">
-              「<span className="font-medium">{searchQuery}</span>」の検索結果: 
-              <span className="ml-1 font-medium">{filteredFavorites.length}件</span>
-            </div>
-          )}
-          <div className="text-sm text-gray-500">
-            登録作品: {favorites.length}件 | 
-            新刊: {favorites.reduce((acc, manga) => acc + manga.volumes.length, 0)}件
-          </div>
+      {searchQuery && (
+        <div className="mb-2 text-sm text-gray-600">
+          「<span className="font-medium">{searchQuery}</span>」の検索結果: 
+          <span className="ml-1 font-medium">{filteredFavorites.length}件</span>
         </div>
-        
-        {/* 追加ボタン */}
-        <button
-          onClick={onAddClick}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-        >
-          <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          追加
-        </button>
-      </div>
+      )}
 
       {/* テーブル */}
       {sortedFavorites.length > 0 ? (
@@ -163,6 +142,9 @@ export default function MangaTable({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    #
+                  </th>
                   <th 
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('series_name')}
@@ -211,7 +193,7 @@ export default function MangaTable({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortedFavorites.map((manga) => {
+                {sortedFavorites.map((manga, index) => {
                   const latestVolume = manga.volumes[0]
                   
                   // 新刊判定: 最新巻の発売日が30日以内
@@ -235,6 +217,9 @@ export default function MangaTable({
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => onMangaClick(manga)}
                     >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {index + 1}
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div>
@@ -346,18 +331,9 @@ export default function MangaTable({
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             お気に入りの漫画がありません
           </h3>
-          <p className="text-gray-500 mb-4">
-            右上の「追加」ボタンから漫画を追加してください
+          <p className="text-gray-500">
+            上の「漫画を追加」ボタンから漫画を追加してください
           </p>
-          <button
-            onClick={onAddClick}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            漫画を追加
-          </button>
         </div>
       )}
     </div>
