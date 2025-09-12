@@ -23,7 +23,7 @@ interface FavoriteWithRating {
   rating: number;
 }
 
-export async function getAIRecommendations(favoritesWithRatings: FavoriteWithRating[], targetYear?: string, count: number = 3): Promise<MangaRecommendation[]> {
+export async function getAIRecommendations(favoritesWithRatings: FavoriteWithRating[], targetYear?: string, count: number = 3, selectedGenres?: string[]): Promise<MangaRecommendation[]> {
   const apiKey = process.env.GROQ_API_KEY;
   
   if (!apiKey) {
@@ -66,11 +66,16 @@ export async function getAIRecommendations(favoritesWithRatings: FavoriteWithRat
   const targetDescription = targetYear 
     ? `${targetYear}年以降に連載開始した最近の漫画` 
     : '漫画';
+
+  // ジャンル指定を追加
+  const genreHint = selectedGenres && selectedGenres.length > 0
+    ? `\n\n【ジャンル指定】\n可能であれば以下のジャンルを考慮して推薦してください：${selectedGenres.join('、')}\n（ただし、お気に入り度との適合性を最優先してください）`
+    : '';
   
   const prompt = `
 あなたは漫画に詳しいAIアシスタントです。以下のユーザーのお気に入り漫画リスト（星評価付き）から好みを分析し、${targetDescription}を${count}つおすすめしてください。
 
-お気に入り漫画（星評価付き）：${favoritesText}
+お気に入り漫画（星評価付き）：${favoritesText}${genreHint}
 
 【重要な分析ポイント】
 - ★★★★★（星5）の作品は「非常に気に入っている」ため、最重要な好み指標として扱う
@@ -176,6 +181,7 @@ function extractAndFixJson(content: string): string | null {
 interface RecommendationOptions {
   minRating: number;
   targetYear?: string;
+  selectedGenres?: string[];
 }
 
 export async function getVerifiedAIRecommendations(
@@ -184,7 +190,7 @@ export async function getVerifiedAIRecommendations(
 ): Promise<MangaRecommendation[]> {
   
   // 第一段階: AI推薦を多めに取得（6件）
-  const candidates = await getAIRecommendations(favoritesWithRatings, options.targetYear, 6);
+  const candidates = await getAIRecommendations(favoritesWithRatings, options.targetYear, 6, options.selectedGenres);
   
   // フィルタリング: 楽天APIで評価チェック
   const { searchMangaWithRatings } = await import('./rakuten');

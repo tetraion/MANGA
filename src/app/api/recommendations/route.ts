@@ -8,7 +8,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'general';
     const excludedParam = searchParams.get('excluded');
+    const genresParam = searchParams.get('genres');
     const excludedFavorites: string[] = excludedParam ? JSON.parse(excludedParam) : [];
+    const selectedGenres: string[] = genresParam ? JSON.parse(genresParam) : [];
     
     const { data: favorites, error } = await supabase
       .from('favorites')
@@ -50,15 +52,16 @@ export async function GET(request: Request) {
 
     // タイプに応じて設定を変更
     const config = type === 'recent' 
-      ? { minRating: 2.5, targetYear: '2025' }
-      : { minRating: 3.0 };
+      ? { minRating: 2.5, targetYear: '2025', selectedGenres }
+      : { minRating: 3.0, selectedGenres };
 
     const recommendations = await getVerifiedAIRecommendations(favoritesWithRatings, config);
 
     return NextResponse.json({
       recommendations,
       basedOn: favoritesWithRatings.map(f => f.name),
-      type
+      type,
+      selectedGenres: selectedGenres.length > 0 ? selectedGenres : undefined
     });
 
   } catch (error) {

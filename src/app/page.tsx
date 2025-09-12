@@ -173,9 +173,13 @@ export default function Home() {
   const handleScrollToRecommendations = () => {
     const element = document.getElementById('ai-recommendations')
     if (element) {
-      element.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
+      // ヘッダーの高さ分オフセットを計算してスクロール
+      const headerHeight = 64 // ヘッダーの高さ（h-16 = 4rem = 64px）
+      const elementTop = element.offsetTop - headerHeight - 16 // 16px の余裕を追加
+      
+      window.scrollTo({
+        top: elementTop,
+        behavior: 'smooth'
       })
       
       // スクロール後に目立たせるアニメーション
